@@ -1,0 +1,6 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+paho-mqtt>=1.6
+PyYAML>=6.0
+protobuf>=4.25
+meshtastic
