@@ -5,14 +5,60 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
 <style>
-:root{--bd:#e5e7eb}
-body{font-family:system-ui,Segoe UI,Roboto,Ubuntu,sans-serif;margin:16px}
-header{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-select,button{padding:6px}
+:root{
+  --bd:#e5e7eb;
+  --bg:#f9fafb;
+  --card-bg:#fff;
+  --accent:#2563eb;
+}
+body{
+  font-family:system-ui,Segoe UI,Roboto,Ubuntu,sans-serif;
+  margin:16px;
+  background:var(--bg);
+  color:#111;
+}
+header{
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+  align-items:center;
+  background:var(--card-bg);
+  padding:12px;
+  border-radius:8px;
+  box-shadow:0 1px 2px rgba(0,0,0,0.05);
+}
+select,button,input{
+  padding:6px;
+  border:1px solid var(--bd);
+  border-radius:6px;
+}
+button{
+  background:var(--accent);
+  color:#fff;
+  border:none;
+  cursor:pointer;
+}
+button:hover{background:#1d4ed8}
 select{min-width:260px}
-.toggles{margin-top:8px;display:flex;gap:12px;flex-wrap:wrap}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(480px,1fr));gap:16px;margin-top:12px}
-.card{border:1px solid var(--bd);border-radius:12px;padding:12px}
+.toggles{
+  margin-top:8px;
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(480px,1fr));
+  gap:16px;
+  margin-top:12px;
+}
+.card{
+  border:1px solid var(--bd);
+  border-radius:12px;
+  padding:12px;
+  background:var(--card-bg);
+  box-shadow:0 1px 3px rgba(0,0,0,0.1);
+}
 canvas{width:100%;height:400px}
 small{color:#666}
 </style>
@@ -48,19 +94,19 @@ small{color:#666}
 </header>
 
 <div class="toggles">
-  <label><input type="checkbox" id="toggle-temperature"/> Temperatura</label>
-  <label><input type="checkbox" id="toggle-humidity"/> Umidità</label>
-  <label><input type="checkbox" id="toggle-pressure"/> Pressione</label>
-  <label><input type="checkbox" id="toggle-voltage"/> Tensione</label>
-  <label><input type="checkbox" id="toggle-current"/> Corrente</label>
+  <label><input type="checkbox" id="toggle-temperature"/> °C</label>
+  <label><input type="checkbox" id="toggle-humidity"/> %</label>
+  <label><input type="checkbox" id="toggle-pressure"/> hPa</label>
+  <label><input type="checkbox" id="toggle-voltage"/> V</label>
+  <label><input type="checkbox" id="toggle-current"/> mA</label>
 </div>
 
 <div class="grid">
-  <div class="card" id="card-temp"><h3 style="margin:0 0 8px">Temperatura</h3><canvas id="chart-temp"></canvas></div>
-  <div class="card" id="card-hum"><h3 style="margin:0 0 8px">Umidità</h3><canvas id="chart-hum"></canvas></div>
-  <div class="card" id="card-press"><h3 style="margin:0 0 8px">Pressione</h3><canvas id="chart-press"></canvas></div>
-  <div class="card" id="card-volt"><h3 style="margin:0 0 8px">Tensione</h3><canvas id="chart-volt"></canvas></div>
-  <div class="card" id="card-curr"><h3 style="margin:0 0 8px">Corrente</h3><canvas id="chart-curr"></canvas></div>
+  <div class="card" id="card-temp"><h3 style="margin:0 0 8px">°C</h3><canvas id="chart-temp"></canvas></div>
+  <div class="card" id="card-hum"><h3 style="margin:0 0 8px">%</h3><canvas id="chart-hum"></canvas></div>
+  <div class="card" id="card-press"><h3 style="margin:0 0 8px">hPa</h3><canvas id="chart-press"></canvas></div>
+  <div class="card" id="card-volt"><h3 style="margin:0 0 8px">V</h3><canvas id="chart-volt"></canvas></div>
+  <div class="card" id="card-curr"><h3 style="margin:0 0 8px">mA</h3><canvas id="chart-curr"></canvas></div>
 </div>
 
 <script src="/static/app.js"></script>
