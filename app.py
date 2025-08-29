@@ -2,7 +2,7 @@ import json, os, re, sqlite3, threading, time
 from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 try:
@@ -125,6 +125,7 @@ def migrate():
               node_id TEXT PRIMARY KEY,
               short_name TEXT,
               long_name TEXT,
+              nickname TEXT,
               last_seen INTEGER,
               info_packets INTEGER DEFAULT 0,
               lat REAL,
@@ -147,6 +148,7 @@ def migrate():
         ncols = _cols("nodes")
         if "short_name" not in ncols: DB.execute("ALTER TABLE nodes ADD COLUMN short_name TEXT")
         if "long_name"  not in ncols: DB.execute("ALTER TABLE nodes ADD COLUMN long_name TEXT")
+        if "nickname" not in ncols: DB.execute("ALTER TABLE nodes ADD COLUMN nickname TEXT")
         if "last_seen"  not in ncols: DB.execute("ALTER TABLE nodes ADD COLUMN last_seen INTEGER")
         if "info_packets" not in ncols: DB.execute("ALTER TABLE nodes ADD COLUMN info_packets INTEGER DEFAULT 0")
         if "lat" not in ncols: DB.execute("ALTER TABLE nodes ADD COLUMN lat REAL")
@@ -159,7 +161,7 @@ def migrate():
         DB.execute("CREATE INDEX IF NOT EXISTS idx_telem_ts ON telemetry(ts)")
         DB.execute("CREATE INDEX IF NOT EXISTS idx_telem_nodeid ON telemetry(node_id)")
         DB.execute("CREATE INDEX IF NOT EXISTS idx_telem_metric ON telemetry(metric)")
-        DB.execute("CREATE INDEX IF NOT EXISTS idx_nodes_name ON nodes(COALESCE(long_name, short_name))")
+        DB.execute("CREATE INDEX IF NOT EXISTS idx_nodes_name ON nodes(COALESCE(nickname, long_name, short_name))")
         DB.commit()
 migrate()
 
@@ -179,8 +181,8 @@ def upsert_node(
     with DB_LOCK:
         DB.execute(
             """
-          INSERT INTO nodes(node_id, short_name, long_name, last_seen, info_packets, lat, lon, alt)
-          VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO nodes(node_id, short_name, long_name, nickname, last_seen, info_packets, lat, lon, alt)
+          VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(node_id) DO UPDATE SET
             short_name = COALESCE(excluded.short_name, nodes.short_name),
             long_name  = COALESCE(excluded.long_name, nodes.long_name),
@@ -191,7 +193,7 @@ def upsert_node(
             lon = COALESCE(excluded.lon, nodes.lon),
             alt = COALESCE(excluded.alt, nodes.alt)
         """,
-            (node_id, short_name, long_name, ts, inc, lat, lon, alt),
+            (node_id, short_name, long_name, None, ts, inc, lat, lon, alt),
         )
         name_to_set = long_name or short_name
         if node_id and name_to_set:
@@ -479,14 +481,15 @@ def start_mqtt():
 
         uid, sname, lname = _extract_user_info(data)
         node_id = uid or _parse_node_id(data, msg.topic)
-        if not node_id:
-            return
-
         lat, lon, alt = _extract_position(data)
         has_info = bool(uid or sname or lname)
+        if not node_id:
+            node_id = "unknown"
+            upsert_node(node_id, None, "Sconosciuto", now_s)
+        else:
+            upsert_node(node_id, sname, lname, now_s, info_packet=has_info, lat=lat, lon=lon, alt=alt)
         # registra o aggiorna sempre il nodo per permettere la selezione anche
         # quando abbiamo solo l'ID (i nomi verranno riempiti alla prima occasione)
-        upsert_node(node_id, sname, lname, now_s, info_packet=has_info, lat=lat, lon=lon, alt=alt)
 
 
         # blocchi con metriche
@@ -557,19 +560,20 @@ def api_nodes():
     with DB_LOCK:
         DB.row_factory = sqlite3.Row
         cur = DB.execute("""
-            SELECT node_id, short_name, long_name, last_seen, info_packets, lat, lon, alt
+            SELECT node_id, short_name, long_name, nickname, last_seen, info_packets, lat, lon, alt
 
-            FROM nodes ORDER BY COALESCE(long_name, short_name, node_id)
+            FROM nodes ORDER BY COALESCE(nickname, long_name, short_name, node_id)
         """)
         rows = cur.fetchall()
     out = []
     for r in rows:
-        disp = r["long_name"] or r["short_name"] or r["node_id"]
+        disp = r["nickname"] or r["long_name"] or r["short_name"] or r["node_id"]
 
         out.append({
             "node_id": r["node_id"],
             "short_name": r["short_name"],
             "long_name": r["long_name"],
+            "nickname": r["nickname"],
             "display_name": disp,
             "last_seen": r["last_seen"],
             "info_packets": r["info_packets"],
@@ -580,13 +584,26 @@ def api_nodes():
 
     return JSONResponse(out)
 
+
+@app.post("/api/nodes/nickname")
+async def api_set_nickname(req: Request):
+    data = await req.json()
+    node_id = data.get("node_id")
+    nickname = (data.get("nickname") or "").strip() or None
+    if not node_id:
+        return JSONResponse({"error": "node_id required"}, status_code=400)
+    with DB_LOCK:
+        DB.execute("UPDATE nodes SET nickname=? WHERE node_id=?", (nickname, node_id))
+        DB.commit()
+    return JSONResponse({"status": "ok"})
+
 def _resolve_ids(names: List[str]) -> List[str]:
     if not names: return []
     qs = ",".join("?" for _ in names)
     with DB_LOCK:
         cur = DB.execute(f"""
             SELECT node_id FROM nodes
-            WHERE COALESCE(long_name, short_name, node_id) IN ({qs})
+            WHERE COALESCE(nickname, long_name, short_name, node_id) IN ({qs})
         """, (*names,))
         ids = [r[0] for r in cur.fetchall()]
     for n in names:
@@ -598,10 +615,12 @@ def _resolve_ids(names: List[str]) -> List[str]:
 def api_metrics(
     nodes: Optional[str] = Query(default=None, description="Nomi visuali o node_id separati da virgola"),
     since_s: int = Query(default=24*3600, ge=0, le=30*24*3600),
+    use_nick: int = Query(default=0, ge=0, le=1),
 ):
     since_ts = int(time.time()) - since_s
     selected = [s.strip() for s in (nodes.split(",") if nodes else []) if s.strip()]
     ids = _resolve_ids(selected) if selected else []
+    name_expr = "COALESCE(nodes.nickname, telemetry.node_name, nodes.long_name, nodes.short_name, telemetry.node_id)" if use_nick else "COALESCE(telemetry.node_name, nodes.long_name, nodes.short_name, telemetry.node_id)"
 
     with DB_LOCK:
         DB.row_factory = sqlite3.Row
@@ -611,7 +630,7 @@ def api_metrics(
                 SELECT
                     telemetry.ts            AS ts,
                     telemetry.node_id       AS node_id,
-                    COALESCE(telemetry.node_name, nodes.long_name, nodes.short_name, telemetry.node_id) AS disp,
+                    {name_expr} AS disp,
                     telemetry.metric        AS metric,
                     telemetry.value         AS value
                 FROM telemetry
@@ -624,7 +643,7 @@ def api_metrics(
                 SELECT
                     telemetry.ts            AS ts,
                     telemetry.node_id       AS node_id,
-                    COALESCE(telemetry.node_name, nodes.long_name, nodes.short_name, telemetry.node_id) AS disp,
+                    {name_expr} AS disp,
                     telemetry.metric        AS metric,
                     telemetry.value         AS value
                 FROM telemetry
