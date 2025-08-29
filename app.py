@@ -201,28 +201,30 @@ def _find_user_blocks(obj: Any) -> List[Dict[str, Any]]:
             out.extend(_find_user_blocks(v))
     return out
 
-def _extract_names(d: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
-    """Extract short and long node names from a decoded message dict.
+def _norm_node_id(val: Any) -> Optional[str]:
+    """Normalize numeric/hex node IDs to a consistent lowercase hex string."""
+    if val is None:
+        return None
+    s = str(val).lstrip("!")
+    if s.isdigit():
+        return format(int(s), "x")
+    try:
+        int(s, 16)
+        return s.lower()
+    except ValueError:
+        return s or None
 
-    Meshtastic JSON/protobuf messages aren't perfectly consistent in how they
-    name the fields containing user information.  Historically both camelCase
-    (``longName``) and PascalCase (``LongName``) have been observed; more recent
-    tooling may emit snake_case (``long_name``).  The previous implementation
-    only checked the first two variants which meant nodes using snake_case
-    fields ended up without a display name and therefore appeared only by ID in
-    the web UI.
+def _extract_user_info(d: Dict[str, Any]) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """Extract node_id, short and long names from a decoded message dict."""
 
-    This helper now normalizes all three styles so that, regardless of the
-    source format, node names are stored and later displayed correctly.
-    """
-
-    def _from_user(u: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+    def _from_user(u: Dict[str, Any]) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        nid = _norm_node_id(u.get("id"))
         return (
+            nid,
             u.get("shortName") or u.get("short_name"),
             u.get("longName") or u.get("LongName") or u.get("long_name"),
         )
 
-    # prova vari livelli usati da JSON/decoded/payload
     for cand in (
         d,
         d.get("payload"),
@@ -235,14 +237,17 @@ def _extract_names(d: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
     blocks = _find_user_blocks(d)
     if blocks:
         return _from_user(blocks[0])
-    return None, None
+    return None, None, None
 
 def _parse_node_id(d: Dict[str, Any], topic: str) -> Optional[str]:
     nid = d.get("from") or d.get("sender") or d.get("node") or d.get("id")
-    if nid: return str(nid).lstrip("!")
+    n = _norm_node_id(nid)
+    if n:
+        return n
     for p in topic.split("/"):
-        if re.fullmatch(r"!?[0-9a-fA-F]{6,}", p or ""):
-            return p.lstrip("!")
+        n = _norm_node_id(p)
+        if n and re.fullmatch(r"[0-9a-fA-F]{6,}", n):
+            return n
     return None
 
 def flatten_numeric(d: Any, prefix: str = "") -> Dict[str, float]:
@@ -366,12 +371,11 @@ def start_mqtt():
         if not isinstance(data, dict):
             return
 
-        node_id = _parse_node_id(data, msg.topic)
+        uid, sname, lname = _extract_user_info(data)
+        node_id = uid or _parse_node_id(data, msg.topic)
         if not node_id:
             return
 
-        # aggiorna nomi
-        sname, lname = _extract_names(data)
         if sname or lname:
             upsert_node(node_id, sname, lname, now_s)
 
@@ -519,8 +523,11 @@ async function loadNodes(){
   $nodes.innerHTML = '';
   for (const n of nodes){
     const opt = document.createElement('option');
-    opt.value = n.display_name;
-    opt.textContent = `${n.display_name} (${n.node_id})`;
+    opt.value = n.node_id;
+    let label = n.long_name || n.short_name || n.node_id;
+    if (n.short_name && n.short_name !== n.long_name) label += ` (${n.short_name})`;
+    label += ` [${n.node_id}]`;
+    opt.textContent = label;
     $nodes.appendChild(opt);
   }
 }
