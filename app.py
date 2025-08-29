@@ -277,6 +277,7 @@ def _parse_node_id(d: Dict[str, Any], topic: str) -> Optional[str]:
             return n
     return None
 
+
 def flatten_numeric(d: Any, prefix: str = "") -> Dict[str, float]:
     out: Dict[str, float] = {}
     if isinstance(d, dict):
@@ -398,6 +399,7 @@ def start_mqtt():
         if not isinstance(data, dict):
             return
 
+
         uid, sname, lname = _extract_user_info(data)
         node_id = uid or _parse_node_id(data, msg.topic)
         if not node_id:
@@ -405,6 +407,7 @@ def start_mqtt():
         # registra o aggiorna sempre il nodo per permettere la selezione anche
         # quando abbiamo solo l'ID (i nomi verranno riempiti alla prima occasione)
         upsert_node(node_id, sname, lname, now_s)
+
 
         # blocchi con metriche
         candidates: List[Dict[str, Any]] = []
@@ -544,6 +547,7 @@ const charts = {
   current:     mkChart(document.getElementById('chart-curr'), 'A')
 };
 
+
 async function loadNodes(){
   const res = await fetch('/api/nodes');
   const nodes = await res.json();
@@ -559,6 +563,7 @@ async function loadNodes(){
     $nodes.appendChild(opt);
   }
 }
+
 
 async function loadData(){
   const names = Array.from($nodes.selectedOptions).map(o => o.value).join(',');
