@@ -123,7 +123,8 @@ def migrate():
               node_id TEXT PRIMARY KEY,
               short_name TEXT,
               long_name TEXT,
-              last_seen INTEGER
+              last_seen INTEGER,
+              info_packets INTEGER DEFAULT 0
             )
         """)
 
@@ -142,7 +143,9 @@ def migrate():
         if "short_name" not in ncols: DB.execute("ALTER TABLE nodes ADD COLUMN short_name TEXT")
         if "long_name"  not in ncols: DB.execute("ALTER TABLE nodes ADD COLUMN long_name TEXT")
         if "last_seen"  not in ncols: DB.execute("ALTER TABLE nodes ADD COLUMN last_seen INTEGER")
+        if "info_packets" not in ncols: DB.execute("ALTER TABLE nodes ADD COLUMN info_packets INTEGER DEFAULT 0")
         DB.execute("UPDATE nodes SET last_seen = 0 WHERE last_seen IS NULL")
+        DB.execute("UPDATE nodes SET info_packets = 0 WHERE info_packets IS NULL")
 
         # indici
         DB.execute("CREATE INDEX IF NOT EXISTS idx_telem_ts ON telemetry(ts)")
@@ -152,17 +155,19 @@ def migrate():
         DB.commit()
 migrate()
 
-def upsert_node(node_id: Optional[str], short_name: Optional[str], long_name: Optional[str], ts: int):
+def upsert_node(node_id: Optional[str], short_name: Optional[str], long_name: Optional[str], ts: int, info_packet: bool = False):
     if not node_id and not (short_name or long_name): return
+    inc = 1 if info_packet else 0
     with DB_LOCK:
         DB.execute("""
-          INSERT INTO nodes(node_id, short_name, long_name, last_seen)
-          VALUES(?, ?, ?, ?)
+          INSERT INTO nodes(node_id, short_name, long_name, last_seen, info_packets)
+          VALUES(?, ?, ?, ?, ?)
           ON CONFLICT(node_id) DO UPDATE SET
             short_name = COALESCE(excluded.short_name, nodes.short_name),
             long_name  = COALESCE(excluded.long_name, nodes.long_name),
-            last_seen  = MAX(nodes.last_seen, excluded.last_seen)
-        """, (node_id, short_name, long_name, ts))
+            last_seen  = MAX(nodes.last_seen, excluded.last_seen),
+            info_packets = nodes.info_packets + excluded.info_packets
+        """, (node_id, short_name, long_name, ts, inc))
         name_to_set = long_name or short_name
         if node_id and name_to_set:
             DB.execute("""
@@ -405,9 +410,10 @@ def start_mqtt():
         node_id = uid or _parse_node_id(data, msg.topic)
         if not node_id:
             return
+        has_info = bool(uid or sname or lname)
         # registra o aggiorna sempre il nodo per permettere la selezione anche
         # quando abbiamo solo l'ID (i nomi verranno riempiti alla prima occasione)
-        upsert_node(node_id, sname, lname, now_s)
+        upsert_node(node_id, sname, lname, now_s, info_packet=has_info)
 
 
         # blocchi con metriche
@@ -474,7 +480,7 @@ def api_nodes():
     with DB_LOCK:
         DB.row_factory = sqlite3.Row
         cur = DB.execute("""
-            SELECT node_id, short_name, long_name, last_seen
+            SELECT node_id, short_name, long_name, last_seen, info_packets
             FROM nodes ORDER BY COALESCE(long_name, short_name, node_id)
         """)
         rows = cur.fetchall()
@@ -482,7 +488,8 @@ def api_nodes():
     for r in rows:
         disp = r["long_name"] or r["short_name"] or r["node_id"]
         out.append({"node_id": r["node_id"], "short_name": r["short_name"],
-                    "long_name": r["long_name"], "display_name": disp, "last_seen": r["last_seen"]})
+                    "long_name": r["long_name"], "display_name": disp,
+                    "last_seen": r["last_seen"], "info_packets": r["info_packets"]})
     return JSONResponse(out)
 
 def _resolve_ids(names: List[str]) -> List[str]:

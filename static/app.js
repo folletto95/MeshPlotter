@@ -45,8 +45,8 @@ async function loadNodes(){
     if (n.long_name) parts.push(n.long_name);
     if (n.short_name && n.short_name !== n.long_name) parts.push(n.short_name);
     if (!parts.length) parts.push(n.node_id);
-    opt.textContent = parts.join(' / ');
-    opt.title = n.node_id;
+    opt.textContent = `${parts.join(' / ')} (${n.info_packets})`;
+    opt.title = `${n.node_id} — info: ${n.info_packets}`;
     $nodes.appendChild(opt);
   }
 }
