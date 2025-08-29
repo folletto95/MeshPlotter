@@ -662,21 +662,21 @@ def api_metrics(
     for r in rows:
         ts, disp, met, val = int(r["ts"]), r["disp"], r["metric"], float(r["value"])
         if met == "temperature":
-            add("temperature", f"{disp} — Temperatura ({UNITS['temperature']})", ts, val)
+            add("temperature", disp, ts, val)
         elif met == "humidity":
-            add("humidity", f"{disp} — Umidità ({UNITS['humidity']})", ts, val)
+            add("humidity", disp, ts, val)
         elif met == "pressure":
-            add("pressure", f"{disp} — Pressione ({UNITS['pressure']})", ts, val)
+            add("pressure", disp, ts, val)
         elif met == "voltage":
-            add("voltage", f"{disp} — Tensione ({UNITS['voltage']})", ts, val)
+            add("voltage", disp, ts, val)
         elif met == "current":
-            add("current", f"{disp} — Corrente ({UNITS['current']})", ts, val)
+            add("current", disp, ts, val)
         elif met in POWER_V_KEYS:
             ch = met.replace("ch", "").replace("_voltage", "")
-            add("voltage", f"{disp} — Tensione ch{ch} (V)", ts, val)
+            add("voltage", f"{disp} ch{ch}", ts, val)
         elif met in POWER_I_KEYS:
             ch = met.replace("ch", "").replace("_current", "")
-            add("current", f"{disp} — Corrente ch{ch} ({UNITS[met]})", ts, val)
+            add("current", f"{disp} ch{ch}", ts, val)
 
     out = {k: [] for k in fams}
     for (fam, label), pts in acc.items():
