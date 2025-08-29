@@ -1,7 +1,13 @@
+
 const $nodes = document.getElementById('nodes');
 const $range = document.getElementById('range');
 const $refresh = document.getElementById('refresh');
 const $autoref = document.getElementById('autoref');
+const $nick = document.getElementById('nick');
+const $saveNick = document.getElementById('save-nick');
+const $showNick = document.getElementById('show-nick');
+
+let nodesMap = {};
 
 function fmtTs(ms){ return new Date(ms).toLocaleString(); }
 
@@ -60,18 +66,36 @@ for (const fam of Object.keys(charts)){
 async function loadNodes(){
   const res = await fetch('/api/nodes');
   const nodes = await res.json();
+  const selected = Array.from($nodes.selectedOptions).map(o => o.value);
   $nodes.innerHTML = '';
+  nodesMap = {};
+  const useNick = $showNick.checked;
   for (const n of nodes){
+    nodesMap[n.node_id] = n;
     const opt = document.createElement('option');
     opt.value = n.node_id;
-    const parts = [];
-    if (n.long_name) parts.push(n.long_name);
-    if (n.short_name && n.short_name !== n.long_name) parts.push(n.short_name);
-    if (!parts.length) parts.push(n.node_id);
-    opt.textContent = `${parts.join(' / ')} (${n.info_packets})`;
+    let label;
+    if (useNick){
+      label = n.nickname || n.long_name || n.short_name || n.node_id;
+    } else {
+      const parts = [];
+      if (n.long_name) parts.push(n.long_name);
+      if (n.short_name && n.short_name !== n.long_name) parts.push(n.short_name);
+      if (!parts.length) parts.push(n.node_id);
+      label = parts.join(' / ');
+    }
+    opt.textContent = `${label} (${n.info_packets})`;
     opt.title = `${n.node_id} — info: ${n.info_packets}`;
+    if (selected.includes(n.node_id)) opt.selected = true;
     $nodes.appendChild(opt);
   }
+  updateNickInput();
+}
+
+function updateNickInput(){
+  const id = $nodes.value;
+  const n = nodesMap[id];
+  $nick.value = n && n.nickname ? n.nickname : '';
 }
 
 async function loadData(){
@@ -80,6 +104,7 @@ async function loadData(){
   const url = new URL('/api/metrics', location.origin);
   if (names) url.searchParams.set('nodes', names);
   url.searchParams.set('since_s', since);
+  url.searchParams.set('use_nick', $showNick.checked ? '1' : '0');
   const res = await fetch(url);
   const data = await res.json();
   const series = data.series || {};
@@ -95,7 +120,20 @@ async function loadData(){
   }
 }
 
+$nodes.onchange = () => { updateNickInput(); };
 $refresh.onclick = loadData;
+$saveNick.onclick = async () => {
+  const id = $nodes.value;
+  if (!id) return;
+  await fetch('/api/nodes/nickname', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ node_id: id, nickname: $nick.value })
+  });
+  await loadNodes();
+  await loadData();
+};
+$showNick.onchange = () => { loadNodes(); loadData(); };
 $autoref.onchange = () => {
   if ($autoref.checked){
     loadData();
