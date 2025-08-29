@@ -118,13 +118,18 @@ def migrate():
               ts_ms INTEGER, topic TEXT, node TEXT, raw_json TEXT
             )
         """)
+
         DB.execute("""
+
             CREATE TABLE IF NOT EXISTS nodes (
               node_id TEXT PRIMARY KEY,
               short_name TEXT,
               long_name TEXT,
               last_seen INTEGER,
-              info_packets INTEGER DEFAULT 0
+              info_packets INTEGER DEFAULT 0,
+              lat REAL,
+              lon REAL,
+              alt REAL
             )
         """)
 
@@ -144,6 +149,9 @@ def migrate():
         if "long_name"  not in ncols: DB.execute("ALTER TABLE nodes ADD COLUMN long_name TEXT")
         if "last_seen"  not in ncols: DB.execute("ALTER TABLE nodes ADD COLUMN last_seen INTEGER")
         if "info_packets" not in ncols: DB.execute("ALTER TABLE nodes ADD COLUMN info_packets INTEGER DEFAULT 0")
+        if "lat" not in ncols: DB.execute("ALTER TABLE nodes ADD COLUMN lat REAL")
+        if "lon" not in ncols: DB.execute("ALTER TABLE nodes ADD COLUMN lon REAL")
+        if "alt" not in ncols: DB.execute("ALTER TABLE nodes ADD COLUMN alt REAL")
         DB.execute("UPDATE nodes SET last_seen = 0 WHERE last_seen IS NULL")
         DB.execute("UPDATE nodes SET info_packets = 0 WHERE info_packets IS NULL")
 
@@ -155,25 +163,46 @@ def migrate():
         DB.commit()
 migrate()
 
-def upsert_node(node_id: Optional[str], short_name: Optional[str], long_name: Optional[str], ts: int, info_packet: bool = False):
-    if not node_id and not (short_name or long_name): return
+def upsert_node(
+    node_id: Optional[str],
+    short_name: Optional[str],
+    long_name: Optional[str],
+    ts: int,
+    info_packet: bool = False,
+    lat: Optional[float] = None,
+    lon: Optional[float] = None,
+    alt: Optional[float] = None,
+):
+    if not node_id and not (short_name or long_name):
+        return
     inc = 1 if info_packet else 0
     with DB_LOCK:
-        DB.execute("""
-          INSERT INTO nodes(node_id, short_name, long_name, last_seen, info_packets)
-          VALUES(?, ?, ?, ?, ?)
+        DB.execute(
+            """
+          INSERT INTO nodes(node_id, short_name, long_name, last_seen, info_packets, lat, lon, alt)
+          VALUES(?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(node_id) DO UPDATE SET
             short_name = COALESCE(excluded.short_name, nodes.short_name),
             long_name  = COALESCE(excluded.long_name, nodes.long_name),
             last_seen  = MAX(nodes.last_seen, excluded.last_seen),
-            info_packets = nodes.info_packets + excluded.info_packets
-        """, (node_id, short_name, long_name, ts, inc))
+
+            info_packets = nodes.info_packets + excluded.info_packets,
+            lat = COALESCE(excluded.lat, nodes.lat),
+            lon = COALESCE(excluded.lon, nodes.lon),
+            alt = COALESCE(excluded.alt, nodes.alt)
+        """,
+            (node_id, short_name, long_name, ts, inc, lat, lon, alt),
+        )
         name_to_set = long_name or short_name
         if node_id and name_to_set:
-            DB.execute("""
+            DB.execute(
+                """
               UPDATE telemetry SET node_name = ?
               WHERE node_id = ? AND (node_name IS NULL OR node_name = '')
-            """, (name_to_set, node_id))
+            """,
+                (name_to_set, node_id),
+            )
+
         DB.commit()
 
 def store_metric(ts: int, node_id: str, metric: str, value: float):
@@ -243,6 +272,35 @@ def _extract_user_info(d: Dict[str, Any]) -> Tuple[Optional[str], Optional[str],
     blocks = _find_user_blocks(d)
     if blocks:
         return _from_user(blocks[0])
+    return None, None, None
+
+def _extract_position(d: Dict[str, Any]) -> Tuple[Optional[float], Optional[float], Optional[float]]:
+    """Look for latitude/longitude/altitude in the message."""
+
+    def _search(obj: Any):
+        if isinstance(obj, dict):
+            lat = obj.get("latitude") or obj.get("lat")
+            lon = obj.get("longitude") or obj.get("lon") or obj.get("lng")
+            if lat is not None and lon is not None:
+                alt = obj.get("altitude") or obj.get("alt") or obj.get("altitude_m")
+                try:
+                    return float(lat), float(lon), (float(alt) if alt is not None else None)
+                except (TypeError, ValueError):
+                    pass
+            for v in obj.values():
+                res = _search(v)
+                if res:
+                    return res
+        elif isinstance(obj, list):
+            for v in obj:
+                res = _search(v)
+                if res:
+                    return res
+        return None
+
+    res = _search(d)
+    if res:
+        return res
     return None, None, None
 
 def _parse_node_id(d: Dict[str, Any], topic: str) -> Optional[str]:
@@ -359,6 +417,14 @@ def try_decode_protobuf(payload: bytes) -> Optional[Dict[str, Any]]:
             return {"user": pb_to_dict(u)}
     except Exception:
         pass
+    # Position (lat/lon)
+    try:
+        p = mesh_pb2.Position()
+        p.ParseFromString(payload)
+        if len(p.ListFields()) > 0:
+            return {"position": pb_to_dict(p)}
+    except Exception:
+        pass
     return None
 
 # ---------- MQTT (una sola istanza via lifespan) ----------
@@ -410,10 +476,12 @@ def start_mqtt():
         node_id = uid or _parse_node_id(data, msg.topic)
         if not node_id:
             return
+
+        lat, lon, alt = _extract_position(data)
         has_info = bool(uid or sname or lname)
         # registra o aggiorna sempre il nodo per permettere la selezione anche
         # quando abbiamo solo l'ID (i nomi verranno riempiti alla prima occasione)
-        upsert_node(node_id, sname, lname, now_s, info_packet=has_info)
+        upsert_node(node_id, sname, lname, now_s, info_packet=has_info, lat=lat, lon=lon, alt=alt)
 
 
         # blocchi con metriche
@@ -475,21 +543,36 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 def ui():
     return FileResponse(os.path.join("static", "index.html"))
 
+@app.get("/map")
+def map_ui():
+    return FileResponse(os.path.join("static", "map.html"))
+
 @app.get("/api/nodes")
 def api_nodes():
     with DB_LOCK:
         DB.row_factory = sqlite3.Row
         cur = DB.execute("""
-            SELECT node_id, short_name, long_name, last_seen, info_packets
+            SELECT node_id, short_name, long_name, last_seen, info_packets, lat, lon, alt
+
             FROM nodes ORDER BY COALESCE(long_name, short_name, node_id)
         """)
         rows = cur.fetchall()
     out = []
     for r in rows:
         disp = r["long_name"] or r["short_name"] or r["node_id"]
-        out.append({"node_id": r["node_id"], "short_name": r["short_name"],
-                    "long_name": r["long_name"], "display_name": disp,
-                    "last_seen": r["last_seen"], "info_packets": r["info_packets"]})
+
+        out.append({
+            "node_id": r["node_id"],
+            "short_name": r["short_name"],
+            "long_name": r["long_name"],
+            "display_name": disp,
+            "last_seen": r["last_seen"],
+            "info_packets": r["info_packets"],
+            "lat": r["lat"],
+            "lon": r["lon"],
+            "alt": r["alt"],
+        })
+
     return JSONResponse(out)
 
 def _resolve_ids(names: List[str]) -> List[str]:
