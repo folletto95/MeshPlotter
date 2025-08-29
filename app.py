@@ -201,28 +201,30 @@ def _find_user_blocks(obj: Any) -> List[Dict[str, Any]]:
             out.extend(_find_user_blocks(v))
     return out
 
-def _extract_names(d: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
-    """Extract short and long node names from a decoded message dict.
+def _norm_node_id(val: Any) -> Optional[str]:
+    """Normalize numeric/hex node IDs to a consistent lowercase hex string."""
+    if val is None:
+        return None
+    s = str(val).lstrip("!")
+    if s.isdigit():
+        return format(int(s), "x")
+    try:
+        int(s, 16)
+        return s.lower()
+    except ValueError:
+        return s or None
 
-    Meshtastic JSON/protobuf messages aren't perfectly consistent in how they
-    name the fields containing user information.  Historically both camelCase
-    (``longName``) and PascalCase (``LongName``) have been observed; more recent
-    tooling may emit snake_case (``long_name``).  The previous implementation
-    only checked the first two variants which meant nodes using snake_case
-    fields ended up without a display name and therefore appeared only by ID in
-    the web UI.
+def _extract_user_info(d: Dict[str, Any]) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """Extract node_id, short and long names from a decoded message dict."""
 
-    This helper now normalizes all three styles so that, regardless of the
-    source format, node names are stored and later displayed correctly.
-    """
-
-    def _from_user(u: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+    def _from_user(u: Dict[str, Any]) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        nid = _norm_node_id(u.get("userId") or u.get("id"))
         return (
+            nid,
             u.get("shortName") or u.get("short_name"),
             u.get("longName") or u.get("LongName") or u.get("long_name"),
         )
 
-    # prova vari livelli usati da JSON/decoded/payload
     for cand in (
         d,
         d.get("payload"),
@@ -235,14 +237,44 @@ def _extract_names(d: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
     blocks = _find_user_blocks(d)
     if blocks:
         return _from_user(blocks[0])
-    return None, None
+    return None, None, None
 
 def _parse_node_id(d: Dict[str, Any], topic: str) -> Optional[str]:
-    nid = d.get("from") or d.get("sender") or d.get("node") or d.get("id")
-    if nid: return str(nid).lstrip("!")
+    """Try to locate a node identifier in the message or topic.
+
+    Meshtastic packets may expose the originating node in various places:
+    ``fromId`` is the canonical user identifier while older firmwares use
+    ``from`` or ``id``.  Some integrations nest these fields under other
+    objects.  To make telemetry storage reliable we recursively walk the
+    message looking for the first usable value and normalise it to a lowercase
+    hexadecimal string.
+    """
+
+    def _find(obj: Any) -> Optional[str]:
+        if isinstance(obj, dict):
+            for key in ("fromId", "userId", "from", "sender", "node", "id"):
+                if key in obj:
+                    n = _norm_node_id(obj[key])
+                    if n:
+                        return n
+            for v in obj.values():
+                n = _find(v)
+                if n:
+                    return n
+        elif isinstance(obj, list):
+            for v in obj:
+                n = _find(v)
+                if n:
+                    return n
+        return None
+
+    n = _find(d)
+    if n:
+        return n
     for p in topic.split("/"):
-        if re.fullmatch(r"!?[0-9a-fA-F]{6,}", p or ""):
-            return p.lstrip("!")
+        n = _norm_node_id(p)
+        if n and re.fullmatch(r"[0-9a-fA-F]{6,}", n):
+            return n
     return None
 
 def flatten_numeric(d: Any, prefix: str = "") -> Dict[str, float]:
@@ -366,14 +398,13 @@ def start_mqtt():
         if not isinstance(data, dict):
             return
 
-        node_id = _parse_node_id(data, msg.topic)
+        uid, sname, lname = _extract_user_info(data)
+        node_id = uid or _parse_node_id(data, msg.topic)
         if not node_id:
             return
-
-        # aggiorna nomi
-        sname, lname = _extract_names(data)
-        if sname or lname:
-            upsert_node(node_id, sname, lname, now_s)
+        # registra o aggiorna sempre il nodo per permettere la selezione anche
+        # quando abbiamo solo l'ID (i nomi verranno riempiti alla prima occasione)
+        upsert_node(node_id, sname, lname, now_s)
 
         # blocchi con metriche
         candidates: List[Dict[str, Any]] = []
@@ -514,18 +545,25 @@ const charts = {
 };
 
 async function loadNodes(){
+  const sel = Array.from($nodes.selectedOptions).map(o => o.value);
   const res = await fetch('/api/nodes');
   const nodes = await res.json();
   $nodes.innerHTML = '';
   for (const n of nodes){
     const opt = document.createElement('option');
-    opt.value = n.display_name;
-    opt.textContent = `${n.display_name} (${n.node_id})`;
+    opt.value = n.node_id;
+    const parts = [];
+    if (n.long_name) parts.push(n.long_name);
+    if (n.short_name && n.short_name !== n.long_name) parts.push(n.short_name);
+    parts.push(n.node_id);
+    opt.textContent = parts.join(' / ');
+    if (sel.includes(n.node_id)) opt.selected = true;
     $nodes.appendChild(opt);
   }
 }
 
 async function loadData(){
+  await loadNodes();
   const names = Array.from($nodes.selectedOptions).map(o => o.value).join(',');
   const since = $range.value;
   const url = new URL('/api/metrics', location.origin);
@@ -547,7 +585,7 @@ $autoref.onchange = () => {
   else { clearInterval(window._timer); }
 };
 
-(async function init(){ await loadNodes(); await loadData(); })();
+(async function init(){ await loadData(); })();
 </script>
 </body></html>
 """
