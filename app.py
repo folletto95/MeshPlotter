@@ -240,7 +240,6 @@ def _extract_user_info(d: Dict[str, Any]) -> Tuple[Optional[str], Optional[str],
     return None, None, None
 
 def _parse_node_id(d: Dict[str, Any], topic: str) -> Optional[str]:
-
     """Try to locate a node identifier in the message or topic.
 
     Meshtastic packets may expose the originating node in various places:
@@ -277,6 +276,7 @@ def _parse_node_id(d: Dict[str, Any], topic: str) -> Optional[str]:
         if n and re.fullmatch(r"[0-9a-fA-F]{6,}", n):
             return n
     return None
+
 
 def flatten_numeric(d: Any, prefix: str = "") -> Dict[str, float]:
     out: Dict[str, float] = {}
@@ -399,13 +399,15 @@ def start_mqtt():
         if not isinstance(data, dict):
             return
 
+
         uid, sname, lname = _extract_user_info(data)
         node_id = uid or _parse_node_id(data, msg.topic)
         if not node_id:
             return
+        # registra o aggiorna sempre il nodo per permettere la selezione anche
+        # quando abbiamo solo l'ID (i nomi verranno riempiti alla prima occasione)
+        upsert_node(node_id, sname, lname, now_s)
 
-        if sname or lname:
-            upsert_node(node_id, sname, lname, now_s)
 
         # blocchi con metriche
         candidates: List[Dict[str, Any]] = []
@@ -545,6 +547,7 @@ const charts = {
   current:     mkChart(document.getElementById('chart-curr'), 'A')
 };
 
+
 async function loadNodes(){
   const res = await fetch('/api/nodes');
   const nodes = await res.json();
@@ -552,16 +555,15 @@ async function loadNodes(){
   for (const n of nodes){
     const opt = document.createElement('option');
     opt.value = n.node_id;
-
-    const disp = n.display_name || n.long_name || n.short_name || n.node_id;
-    let label = disp;
-
-    if (n.short_name && n.short_name !== n.long_name) label += ` (${n.short_name})`;
-    label += ` [${n.node_id}]`;
-    opt.textContent = label;
+    const parts = [];
+    if (n.long_name) parts.push(n.long_name);
+    if (n.short_name && n.short_name !== n.long_name) parts.push(n.short_name);
+    parts.push(n.node_id);
+    opt.textContent = parts.join(' / ');
     $nodes.appendChild(opt);
   }
 }
+
 
 async function loadData(){
   const names = Array.from($nodes.selectedOptions).map(o => o.value).join(',');
