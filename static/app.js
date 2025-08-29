@@ -31,8 +31,31 @@ const charts = {
   humidity:    mkChart(document.getElementById('chart-hum'), '%'),
   pressure:    mkChart(document.getElementById('chart-press'), 'hPa'),
   voltage:     mkChart(document.getElementById('chart-volt'), 'V'),
-  current:     mkChart(document.getElementById('chart-curr'), 'A')
+  current:     mkChart(document.getElementById('chart-curr'), 'mA')
 };
+
+const cards = {
+  temperature: document.getElementById('card-temp'),
+  humidity:    document.getElementById('card-hum'),
+  pressure:    document.getElementById('card-press'),
+  voltage:     document.getElementById('card-volt'),
+  current:     document.getElementById('card-curr')
+};
+
+const toggles = {
+  temperature: document.getElementById('toggle-temperature'),
+  humidity:    document.getElementById('toggle-humidity'),
+  pressure:    document.getElementById('toggle-pressure'),
+  voltage:     document.getElementById('toggle-voltage'),
+  current:     document.getElementById('toggle-current')
+};
+
+for (const fam of Object.keys(charts)){
+  cards[fam].style.display = 'none';
+  toggles[fam].onchange = () => {
+    cards[fam].style.display = toggles[fam].checked ? '' : 'none';
+  };
+}
 
 async function loadNodes(){
   const res = await fetch('/api/nodes');
@@ -67,6 +90,8 @@ async function loadData(){
     });
     charts[fam].data.datasets = ds;
     charts[fam].update();
+    if (ds.length > 0) toggles[fam].checked = true;
+    cards[fam].style.display = toggles[fam].checked ? '' : 'none';
   }
 }
 

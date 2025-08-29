@@ -10,6 +10,7 @@ body{font-family:system-ui,Segoe UI,Roboto,Ubuntu,sans-serif;margin:16px}
 header{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
 select,button{padding:6px}
 select{min-width:260px}
+.toggles{margin-top:8px;display:flex;gap:12px;flex-wrap:wrap}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(480px,1fr));gap:16px;margin-top:12px}
 .card{border:1px solid var(--bd);border-radius:12px;padding:12px}
 canvas{width:100%;height:400px}
@@ -39,12 +40,20 @@ small{color:#666}
   </label>
 </header>
 
+<div class="toggles">
+  <label><input type="checkbox" id="toggle-temperature"/> Temperatura</label>
+  <label><input type="checkbox" id="toggle-humidity"/> Umidità</label>
+  <label><input type="checkbox" id="toggle-pressure"/> Pressione</label>
+  <label><input type="checkbox" id="toggle-voltage"/> Tensione</label>
+  <label><input type="checkbox" id="toggle-current"/> Corrente</label>
+</div>
+
 <div class="grid">
-  <div class="card"><h3 style="margin:0 0 8px">Temperatura</h3><canvas id="chart-temp"></canvas></div>
-  <div class="card"><h3 style="margin:0 0 8px">Umidità</h3><canvas id="chart-hum"></canvas></div>
-  <div class="card"><h3 style="margin:0 0 8px">Pressione</h3><canvas id="chart-press"></canvas></div>
-  <div class="card"><h3 style="margin:0 0 8px">Tensione</h3><canvas id="chart-volt"></canvas></div>
-  <div class="card"><h3 style="margin:0 0 8px">Corrente</h3><canvas id="chart-curr"></canvas></div>
+  <div class="card" id="card-temp"><h3 style="margin:0 0 8px">Temperatura</h3><canvas id="chart-temp"></canvas></div>
+  <div class="card" id="card-hum"><h3 style="margin:0 0 8px">Umidità</h3><canvas id="chart-hum"></canvas></div>
+  <div class="card" id="card-press"><h3 style="margin:0 0 8px">Pressione</h3><canvas id="chart-press"></canvas></div>
+  <div class="card" id="card-volt"><h3 style="margin:0 0 8px">Tensione</h3><canvas id="chart-volt"></canvas></div>
+  <div class="card" id="card-curr"><h3 style="margin:0 0 8px">Corrente</h3><canvas id="chart-curr"></canvas></div>
 </div>
 
 <script src="/static/app.js"></script>
