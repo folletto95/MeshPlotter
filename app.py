@@ -3,7 +3,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 from fastapi import FastAPI, Query
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 try:
     from fastapi.middleware.cors import CORSMiddleware
     HAVE_CORS = True
@@ -122,7 +123,8 @@ def migrate():
               node_id TEXT PRIMARY KEY,
               short_name TEXT,
               long_name TEXT,
-              last_seen INTEGER
+              last_seen INTEGER,
+              info_packets INTEGER DEFAULT 0
             )
         """)
 
@@ -141,7 +143,9 @@ def migrate():
         if "short_name" not in ncols: DB.execute("ALTER TABLE nodes ADD COLUMN short_name TEXT")
         if "long_name"  not in ncols: DB.execute("ALTER TABLE nodes ADD COLUMN long_name TEXT")
         if "last_seen"  not in ncols: DB.execute("ALTER TABLE nodes ADD COLUMN last_seen INTEGER")
+        if "info_packets" not in ncols: DB.execute("ALTER TABLE nodes ADD COLUMN info_packets INTEGER DEFAULT 0")
         DB.execute("UPDATE nodes SET last_seen = 0 WHERE last_seen IS NULL")
+        DB.execute("UPDATE nodes SET info_packets = 0 WHERE info_packets IS NULL")
 
         # indici
         DB.execute("CREATE INDEX IF NOT EXISTS idx_telem_ts ON telemetry(ts)")
@@ -151,17 +155,19 @@ def migrate():
         DB.commit()
 migrate()
 
-def upsert_node(node_id: Optional[str], short_name: Optional[str], long_name: Optional[str], ts: int):
+def upsert_node(node_id: Optional[str], short_name: Optional[str], long_name: Optional[str], ts: int, info_packet: bool = False):
     if not node_id and not (short_name or long_name): return
+    inc = 1 if info_packet else 0
     with DB_LOCK:
         DB.execute("""
-          INSERT INTO nodes(node_id, short_name, long_name, last_seen)
-          VALUES(?, ?, ?, ?)
+          INSERT INTO nodes(node_id, short_name, long_name, last_seen, info_packets)
+          VALUES(?, ?, ?, ?, ?)
           ON CONFLICT(node_id) DO UPDATE SET
             short_name = COALESCE(excluded.short_name, nodes.short_name),
             long_name  = COALESCE(excluded.long_name, nodes.long_name),
-            last_seen  = MAX(nodes.last_seen, excluded.last_seen)
-        """, (node_id, short_name, long_name, ts))
+            last_seen  = MAX(nodes.last_seen, excluded.last_seen),
+            info_packets = nodes.info_packets + excluded.info_packets
+        """, (node_id, short_name, long_name, ts, inc))
         name_to_set = long_name or short_name
         if node_id and name_to_set:
             DB.execute("""
@@ -404,9 +410,10 @@ def start_mqtt():
         node_id = uid or _parse_node_id(data, msg.topic)
         if not node_id:
             return
+        has_info = bool(uid or sname or lname)
         # registra o aggiorna sempre il nodo per permettere la selezione anche
         # quando abbiamo solo l'ID (i nomi verranno riempiti alla prima occasione)
-        upsert_node(node_id, sname, lname, now_s)
+        upsert_node(node_id, sname, lname, now_s, info_packet=has_info)
 
 
         # blocchi con metriche
@@ -462,147 +469,18 @@ app = FastAPI(title="Meshtastic Telemetry (embedded UI)", lifespan=lifespan)
 if ALLOW_CORS and HAVE_CORS:
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# ----------- UI EMBEDDED -----------
-INDEX_HTML = """<!doctype html>
-<html lang="it"><head>
-<meta charset="utf-8"/><title>Meshtastic Telemetry</title>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
-<style>
-:root{--bd:#e5e7eb}
-body{font-family:system-ui,Segoe UI,Roboto,Ubuntu,sans-serif;margin:16px}
-header{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-select,button{padding:6px}
-select{min-width:260px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-top:12px}
-.card{border:1px solid var(--bd);border-radius:12px;padding:12px}
-canvas{width:100%;height:320px}
-small{color:#666}
-</style>
-</head>
-<body>
-<header>
-  <h2 style="margin:0">Meshtastic Telemetry</h2>
-  <label>
-    <small>Nodi (Long/Short/ID)</small><br/>
-    <select id="nodes" multiple size="5"></select>
-  </label>
-  <label>
-    <small>Intervallo</small><br/>
-    <select id="range">
-      <option value="3600">Ultima ora</option>
-      <option value="21600">Ultime 6 ore</option>
-      <option value="86400" selected>Ultime 24 ore</option>
-      <option value="604800">Ultimi 7 giorni</option>
-    </select>
-  </label>
-  <button id="refresh">Aggiorna</button>
-  <label style="margin-left:auto">
-    <input type="checkbox" id="autoref"/> Auto-refresh (15s)
-  </label>
-</header>
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-<div class="grid">
-  <div class="card"><h3 style="margin:0 0 8px">Temperatura</h3><canvas id="chart-temp"></canvas></div>
-  <div class="card"><h3 style="margin:0 0 8px">Umidità</h3><canvas id="chart-hum"></canvas></div>
-  <div class="card"><h3 style="margin:0 0 8px">Pressione</h3><canvas id="chart-press"></canvas></div>
-  <div class="card"><h3 style="margin:0 0 8px">Tensione</h3><canvas id="chart-volt"></canvas></div>
-  <div class="card"><h3 style="margin:0 0 8px">Corrente</h3><canvas id="chart-curr"></canvas></div>
-</div>
-
-<script>
-const $nodes = document.getElementById('nodes');
-const $range = document.getElementById('range');
-const $refresh = document.getElementById('refresh');
-const $autoref = document.getElementById('autoref');
-
-function fmtTs(ms){ return new Date(ms).toLocaleString(); }
-
-function mkChart(ctx, yLabel){
-  return new Chart(ctx, {
-    type: 'line',
-    data: { datasets: [] },
-    options: {
-      responsive: true, parsing: false, animation: false,
-      interaction: { mode: 'nearest', intersect: false },
-      plugins: {
-        legend: { position: 'bottom' },
-        tooltip: {
-          callbacks: {
-            title: items => fmtTs(items[0].raw[0]),
-            label: item => `${item.dataset.label}: ${item.raw[1]}`
-          }
-        }
-      },
-      scales: { x: { type:'time', time:{ unit:'minute' } }, y: { title: { display:true, text:yLabel } } }
-    }
-  });
-}
-const charts = {
-  temperature: mkChart(document.getElementById('chart-temp'), '°C'),
-  humidity:    mkChart(document.getElementById('chart-hum'), '%'),
-  pressure:    mkChart(document.getElementById('chart-press'), 'hPa'),
-  voltage:     mkChart(document.getElementById('chart-volt'), 'V'),
-  current:     mkChart(document.getElementById('chart-curr'), 'A')
-};
-
-
-async function loadNodes(){
-  const res = await fetch('/api/nodes');
-  const nodes = await res.json();
-  $nodes.innerHTML = '';
-  for (const n of nodes){
-    const opt = document.createElement('option');
-    opt.value = n.node_id;
-    const parts = [];
-    if (n.long_name) parts.push(n.long_name);
-    if (n.short_name && n.short_name !== n.long_name) parts.push(n.short_name);
-    parts.push(n.node_id);
-    opt.textContent = parts.join(' / ');
-    $nodes.appendChild(opt);
-  }
-}
-
-
-async function loadData(){
-  const names = Array.from($nodes.selectedOptions).map(o => o.value).join(',');
-  const since = $range.value;
-  const url = new URL('/api/metrics', location.origin);
-  if (names) url.searchParams.set('nodes', names);
-  url.searchParams.set('since_s', since);
-  const res = await fetch(url);
-  const data = await res.json();
-  const series = data.series || {};
-  for (const fam of Object.keys(charts)){
-    const ds = (series[fam] || []).map(s => ({ label: s.label, data: s.data }));
-    charts[fam].data.datasets = ds;
-    charts[fam].update();
-  }
-}
-
-$refresh.onclick = loadData;
-$autoref.onchange = () => {
-  if ($autoref.checked){ loadData(); window._timer = setInterval(loadData, 15000); }
-  else { clearInterval(window._timer); }
-};
-
-(async function init(){ await loadNodes(); await loadData(); })();
-</script>
-</body></html>
-"""
-
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 def ui():
-    return HTMLResponse(INDEX_HTML)
+    return FileResponse(os.path.join("static", "index.html"))
 
-# --------- API ----------
 @app.get("/api/nodes")
 def api_nodes():
     with DB_LOCK:
         DB.row_factory = sqlite3.Row
         cur = DB.execute("""
-            SELECT node_id, short_name, long_name, last_seen
+            SELECT node_id, short_name, long_name, last_seen, info_packets
             FROM nodes ORDER BY COALESCE(long_name, short_name, node_id)
         """)
         rows = cur.fetchall()
@@ -610,7 +488,8 @@ def api_nodes():
     for r in rows:
         disp = r["long_name"] or r["short_name"] or r["node_id"]
         out.append({"node_id": r["node_id"], "short_name": r["short_name"],
-                    "long_name": r["long_name"], "display_name": disp, "last_seen": r["last_seen"]})
+                    "long_name": r["long_name"], "display_name": disp,
+                    "last_seen": r["last_seen"], "info_packets": r["info_packets"]})
     return JSONResponse(out)
 
 def _resolve_ids(names: List[str]) -> List[str]:
@@ -668,10 +547,10 @@ def api_metrics(
         rows = cur.fetchall()
 
     fams = {"temperature": [], "humidity": [], "pressure": [], "voltage": [], "current": []}
-    acc: Dict[Tuple[str, str], List[List[float]]] = {}
+    acc: Dict[Tuple[str, str], List[Dict[str, float]]] = {}
 
     def add(fam: str, label: str, ts: int, val: float):
-        acc.setdefault((fam, label), []).append([ts * 1000, float(val)])
+        acc.setdefault((fam, label), []).append({"x": ts * 1000, "y": float(val)})
 
     for r in rows:
         ts, disp, met, val = int(r["ts"]), r["disp"], r["metric"], float(r["value"])
