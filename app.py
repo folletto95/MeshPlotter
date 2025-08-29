@@ -3,7 +3,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 from fastapi import FastAPI, Query
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 try:
     from fastapi.middleware.cors import CORSMiddleware
     HAVE_CORS = True
@@ -462,141 +463,12 @@ app = FastAPI(title="Meshtastic Telemetry (embedded UI)", lifespan=lifespan)
 if ALLOW_CORS and HAVE_CORS:
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# ----------- UI EMBEDDED -----------
-INDEX_HTML = """<!doctype html>
-<html lang="it"><head>
-<meta charset="utf-8"/><title>Meshtastic Telemetry</title>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
-<style>
-:root{--bd:#e5e7eb}
-body{font-family:system-ui,Segoe UI,Roboto,Ubuntu,sans-serif;margin:16px}
-header{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-select,button{padding:6px}
-select{min-width:260px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-top:12px}
-.card{border:1px solid var(--bd);border-radius:12px;padding:12px}
-canvas{width:100%;height:320px}
-small{color:#666}
-</style>
-</head>
-<body>
-<header>
-  <h2 style="margin:0">Meshtastic Telemetry</h2>
-  <label>
-    <small>Nodi (Long/Short/ID)</small><br/>
-    <select id="nodes" multiple size="5"></select>
-  </label>
-  <label>
-    <small>Intervallo</small><br/>
-    <select id="range">
-      <option value="3600">Ultima ora</option>
-      <option value="21600">Ultime 6 ore</option>
-      <option value="86400" selected>Ultime 24 ore</option>
-      <option value="604800">Ultimi 7 giorni</option>
-    </select>
-  </label>
-  <button id="refresh">Aggiorna</button>
-  <label style="margin-left:auto">
-    <input type="checkbox" id="autoref"/> Auto-refresh (15s)
-  </label>
-</header>
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-<div class="grid">
-  <div class="card"><h3 style="margin:0 0 8px">Temperatura</h3><canvas id="chart-temp"></canvas></div>
-  <div class="card"><h3 style="margin:0 0 8px">Umidità</h3><canvas id="chart-hum"></canvas></div>
-  <div class="card"><h3 style="margin:0 0 8px">Pressione</h3><canvas id="chart-press"></canvas></div>
-  <div class="card"><h3 style="margin:0 0 8px">Tensione</h3><canvas id="chart-volt"></canvas></div>
-  <div class="card"><h3 style="margin:0 0 8px">Corrente</h3><canvas id="chart-curr"></canvas></div>
-</div>
-
-<script>
-const $nodes = document.getElementById('nodes');
-const $range = document.getElementById('range');
-const $refresh = document.getElementById('refresh');
-const $autoref = document.getElementById('autoref');
-
-function fmtTs(ms){ return new Date(ms).toLocaleString(); }
-
-function mkChart(ctx, yLabel){
-  return new Chart(ctx, {
-    type: 'line',
-    data: { datasets: [] },
-    options: {
-      responsive: true, parsing: false, animation: false,
-      interaction: { mode: 'nearest', intersect: false },
-      plugins: {
-        legend: { position: 'bottom' },
-        tooltip: {
-          callbacks: {
-            title: items => fmtTs(items[0].raw[0]),
-            label: item => `${item.dataset.label}: ${item.raw[1]}`
-          }
-        }
-      },
-      scales: { x: { type:'time', time:{ unit:'minute' } }, y: { title: { display:true, text:yLabel } } }
-    }
-  });
-}
-const charts = {
-  temperature: mkChart(document.getElementById('chart-temp'), '°C'),
-  humidity:    mkChart(document.getElementById('chart-hum'), '%'),
-  pressure:    mkChart(document.getElementById('chart-press'), 'hPa'),
-  voltage:     mkChart(document.getElementById('chart-volt'), 'V'),
-  current:     mkChart(document.getElementById('chart-curr'), 'A')
-};
-
-
-async function loadNodes(){
-  const res = await fetch('/api/nodes');
-  const nodes = await res.json();
-  $nodes.innerHTML = '';
-  for (const n of nodes){
-    const opt = document.createElement('option');
-    opt.value = n.node_id;
-    const parts = [];
-    if (n.long_name) parts.push(n.long_name);
-    if (n.short_name && n.short_name !== n.long_name) parts.push(n.short_name);
-    parts.push(n.node_id);
-    opt.textContent = parts.join(' / ');
-    $nodes.appendChild(opt);
-  }
-}
-
-
-async function loadData(){
-  const names = Array.from($nodes.selectedOptions).map(o => o.value).join(',');
-  const since = $range.value;
-  const url = new URL('/api/metrics', location.origin);
-  if (names) url.searchParams.set('nodes', names);
-  url.searchParams.set('since_s', since);
-  const res = await fetch(url);
-  const data = await res.json();
-  const series = data.series || {};
-  for (const fam of Object.keys(charts)){
-    const ds = (series[fam] || []).map(s => ({ label: s.label, data: s.data }));
-    charts[fam].data.datasets = ds;
-    charts[fam].update();
-  }
-}
-
-$refresh.onclick = loadData;
-$autoref.onchange = () => {
-  if ($autoref.checked){ loadData(); window._timer = setInterval(loadData, 15000); }
-  else { clearInterval(window._timer); }
-};
-
-(async function init(){ await loadNodes(); await loadData(); })();
-</script>
-</body></html>
-"""
-
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 def ui():
-    return HTMLResponse(INDEX_HTML)
+    return FileResponse(os.path.join("static", "index.html"))
 
-# --------- API ----------
 @app.get("/api/nodes")
 def api_nodes():
     with DB_LOCK:
