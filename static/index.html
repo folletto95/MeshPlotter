@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="it"><head>
+<meta charset="utf-8"/><title>Meshtastic Telemetry</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+<style>
+:root{--bd:#e5e7eb}
+body{font-family:system-ui,Segoe UI,Roboto,Ubuntu,sans-serif;margin:16px}
+header{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+select,button{padding:6px}
+select{min-width:260px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(480px,1fr));gap:16px;margin-top:12px}
+.card{border:1px solid var(--bd);border-radius:12px;padding:12px}
+canvas{width:100%;height:400px}
+small{color:#666}
+</style>
+</head>
+<body>
+<header>
+  <h2 style="margin:0">Meshtastic Telemetry</h2>
+  <label>
+    <small>Nodi (Long/Short/ID)</small><br/>
+    <select id="nodes" multiple size="5"></select>
+  </label>
+  <label>
+    <small>Intervallo</small><br/>
+    <select id="range">
+      <option value="3600">Ultima ora</option>
+      <option value="21600">Ultime 6 ore</option>
+      <option value="86400" selected>Ultime 24 ore</option>
+      <option value="604800">Ultimi 7 giorni</option>
+    </select>
+  </label>
+  <button id="refresh">Aggiorna</button>
+  <label style="margin-left:auto">
+    <input type="checkbox" id="autoref"/> Auto-refresh (15s)
+  </label>
+</header>
+
+<div class="grid">
+  <div class="card"><h3 style="margin:0 0 8px">Temperatura</h3><canvas id="chart-temp"></canvas></div>
+  <div class="card"><h3 style="margin:0 0 8px">Umidità</h3><canvas id="chart-hum"></canvas></div>
+  <div class="card"><h3 style="margin:0 0 8px">Pressione</h3><canvas id="chart-press"></canvas></div>
+  <div class="card"><h3 style="margin:0 0 8px">Tensione</h3><canvas id="chart-volt"></canvas></div>
+  <div class="card"><h3 style="margin:0 0 8px">Corrente</h3><canvas id="chart-curr"></canvas></div>
+</div>
+
+<script src="/static/app.js"></script>
+</body></html>
