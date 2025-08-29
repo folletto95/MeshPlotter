@@ -118,7 +118,9 @@ def migrate():
               ts_ms INTEGER, topic TEXT, node TEXT, raw_json TEXT
             )
         """)
+
         DB.execute("""
+
             CREATE TABLE IF NOT EXISTS nodes (
               node_id TEXT PRIMARY KEY,
               short_name TEXT,
@@ -183,6 +185,7 @@ def upsert_node(
             short_name = COALESCE(excluded.short_name, nodes.short_name),
             long_name  = COALESCE(excluded.long_name, nodes.long_name),
             last_seen  = MAX(nodes.last_seen, excluded.last_seen),
+
             info_packets = nodes.info_packets + excluded.info_packets,
             lat = COALESCE(excluded.lat, nodes.lat),
             lon = COALESCE(excluded.lon, nodes.lon),
@@ -199,6 +202,7 @@ def upsert_node(
             """,
                 (name_to_set, node_id),
             )
+
         DB.commit()
 
 def store_metric(ts: int, node_id: str, metric: str, value: float):
@@ -472,6 +476,7 @@ def start_mqtt():
         node_id = uid or _parse_node_id(data, msg.topic)
         if not node_id:
             return
+
         lat, lon, alt = _extract_position(data)
         has_info = bool(uid or sname or lname)
         # registra o aggiorna sempre il nodo per permettere la selezione anche
@@ -548,12 +553,14 @@ def api_nodes():
         DB.row_factory = sqlite3.Row
         cur = DB.execute("""
             SELECT node_id, short_name, long_name, last_seen, info_packets, lat, lon, alt
+
             FROM nodes ORDER BY COALESCE(long_name, short_name, node_id)
         """)
         rows = cur.fetchall()
     out = []
     for r in rows:
         disp = r["long_name"] or r["short_name"] or r["node_id"]
+
         out.append({
             "node_id": r["node_id"],
             "short_name": r["short_name"],
@@ -565,6 +572,7 @@ def api_nodes():
             "lon": r["lon"],
             "alt": r["alt"],
         })
+
     return JSONResponse(out)
 
 def _resolve_ids(names: List[str]) -> List[str]:
