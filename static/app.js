@@ -24,7 +24,10 @@ function mkChart(ctx, yLabel){
         tooltip: {
           callbacks: {
             title: items => fmtTs(items[0].raw.x),
-            label: item => `${item.dataset.label}: ${item.raw.y}`
+            label: item => {
+              const prefix = item.dataset.showNode ? `${item.dataset.node}: ` : '';
+              return `${prefix}${item.raw.y} ${item.dataset.unit}`;
+            }
           }
         }
       },
@@ -99,7 +102,8 @@ function updateNickInput(){
 }
 
 async function loadData(){
-  const names = Array.from($nodes.selectedOptions).map(o => o.value).join(',');
+  const ids = Array.from($nodes.selectedOptions).map(o => o.value);
+  const names = ids.join(',');
   const since = $range.value;
   const url = new URL('/api/metrics', location.origin);
   if (names) url.searchParams.set('nodes', names);
@@ -108,10 +112,15 @@ async function loadData(){
   const res = await fetch(url);
   const data = await res.json();
   const series = data.series || {};
+  const units = data.units || {};
+  const showNode = ids.length > 1;
   for (const fam of Object.keys(charts)){
+    const unit = units[fam] || '';
     const ds = (series[fam] || []).map(s => {
       const last = s.data.length ? s.data[s.data.length - 1].y.toFixed(2) : 'n/a';
-      return { label: `${s.label} — Ultimo: ${last}`, data: s.data };
+      const node = s.label;
+      const label = showNode ? `${last} ${unit} ${node}` : `${last} ${unit}`;
+      return { label, data: s.data, node, unit, showNode };
     });
     charts[fam].data.datasets = ds;
     charts[fam].update();
