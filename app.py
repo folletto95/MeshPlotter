@@ -396,6 +396,10 @@ async def lifespan(app: FastAPI):
                 mqtt_client_ref.disconnect()
         except Exception:
             pass
+        try:
+            DB.close()
+        except Exception:
+            pass
 
 app = FastAPI(title="Meshtastic Telemetry (embedded UI)", lifespan=lifespan)
 if ALLOW_CORS and HAVE_CORS:
