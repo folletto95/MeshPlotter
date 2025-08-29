@@ -76,7 +76,7 @@ async function loadNodes(){
     opt.value = n.node_id;
     let label;
     if (useNick){
-      label = n.display_name;
+      label = n.nickname || n.long_name || n.short_name || n.node_id;
     } else {
       const parts = [];
       if (n.long_name) parts.push(n.long_name);
