@@ -240,6 +240,7 @@ def _extract_user_info(d: Dict[str, Any]) -> Tuple[Optional[str], Optional[str],
     return None, None, None
 
 def _parse_node_id(d: Dict[str, Any], topic: str) -> Optional[str]:
+
     """Try to locate a node identifier in the message or topic.
 
     Meshtastic packets may expose the originating node in various places:
@@ -551,8 +552,10 @@ async function loadNodes(){
   for (const n of nodes){
     const opt = document.createElement('option');
     opt.value = n.node_id;
+
     const disp = n.display_name || n.long_name || n.short_name || n.node_id;
     let label = disp;
+
     if (n.short_name && n.short_name !== n.long_name) label += ` (${n.short_name})`;
     label += ` [${n.node_id}]`;
     opt.textContent = label;
