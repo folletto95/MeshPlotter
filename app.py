@@ -89,9 +89,9 @@ UNITS = {
     "humidity": "%",
     "pressure": "hPa",
     "voltage": "V",
-    "current": "A",
+    "current": "mA",
     **{k: "V" for k in POWER_V_KEYS},
-    **{k: "A" for k in POWER_I_KEYS},
+    **{k: "mA" for k in POWER_I_KEYS},
 }
 
 # ---------- DB + migrazioni ----------
@@ -284,7 +284,12 @@ def _extract_position(d: Dict[str, Any]) -> Tuple[Optional[float], Optional[floa
             if lat is not None and lon is not None:
                 alt = obj.get("altitude") or obj.get("alt") or obj.get("altitude_m")
                 try:
-                    return float(lat), float(lon), (float(alt) if alt is not None else None)
+                    lat_f = float(lat)
+                    lon_f = float(lon)
+                    if lat_f == 0 and lon_f == 0:
+                        raise ValueError
+                    alt_f = float(alt) if alt is not None else None
+                    return lat_f, lon_f, alt_f
                 except (TypeError, ValueError):
                     pass
             for v in obj.values():
@@ -378,14 +383,14 @@ def _normalize_metric(k: str, v: float) -> Optional[Tuple[str, float]]:
         f = m.group(2)
         if f in ("bus_voltage", "shunt_voltage"): return ("voltage", v)
         if f in ("current", "current_a"): return ("current", v)
-        if f == "current_ma": return ("current", v/1000.0)
+        if f == "current_ma": return ("current", v)
     if "config." in k_low or "prefs." in k_low: return None
     if _RE_GENERIC.search(k_low):
         if "temp" in k_low: return ("temperature", v)
         if "hum" in k_low: return ("humidity", v)
         if "press" in k_low: return ("pressure", v)
         if "volt" in k_low: return ("voltage", v)
-        if "current_ma" in k_low: return ("current", v/1000.0)
+        if "current_ma" in k_low: return ("current", v)
         if "current" in k_low: return ("current", v)
     return None
 
@@ -652,7 +657,7 @@ def api_metrics(
             add("voltage", f"{disp} — Tensione ch{ch} (V)", ts, val)
         elif met in POWER_I_KEYS:
             ch = met.replace("ch", "").replace("_current", "")
-            add("current", f"{disp} — Corrente ch{ch} (A)", ts, val)
+            add("current", f"{disp} — Corrente ch{ch} ({UNITS[met]})", ts, val)
 
     out = {k: [] for k in fams}
     for (fam, label), pts in acc.items():
