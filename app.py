@@ -639,7 +639,7 @@ def api_metrics(
                 ORDER BY telemetry.ts ASC
             """, (since_ts, *ids))
         else:
-            cur = DB.execute("""
+            cur = DB.execute(f"""
                 SELECT
                     telemetry.ts            AS ts,
                     telemetry.node_id       AS node_id,

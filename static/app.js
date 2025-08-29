@@ -75,8 +75,9 @@ async function loadNodes(){
     const opt = document.createElement('option');
     opt.value = n.node_id;
     let label;
-    if (useNick && n.nickname) label = n.nickname;
-    else {
+    if (useNick){
+      label = n.display_name;
+    } else {
       const parts = [];
       if (n.long_name) parts.push(n.long_name);
       if (n.short_name && n.short_name !== n.long_name) parts.push(n.short_name);
