@@ -240,8 +240,36 @@ def _extract_user_info(d: Dict[str, Any]) -> Tuple[Optional[str], Optional[str],
     return None, None, None
 
 def _parse_node_id(d: Dict[str, Any], topic: str) -> Optional[str]:
-    nid = d.get("from") or d.get("sender") or d.get("node") or d.get("id")
-    n = _norm_node_id(nid)
+
+    """Try to locate a node identifier in the message or topic.
+
+    Meshtastic packets may expose the originating node in various places:
+    ``fromId`` is the canonical user identifier while older firmwares use
+    ``from`` or ``id``.  Some integrations nest these fields under other
+    objects.  To make telemetry storage reliable we recursively walk the
+    message looking for the first usable value and normalise it to a lowercase
+    hexadecimal string.
+    """
+
+    def _find(obj: Any) -> Optional[str]:
+        if isinstance(obj, dict):
+            for key in ("fromId", "from", "sender", "node", "id"):
+                if key in obj:
+                    n = _norm_node_id(obj[key])
+                    if n:
+                        return n
+            for v in obj.values():
+                n = _find(v)
+                if n:
+                    return n
+        elif isinstance(obj, list):
+            for v in obj:
+                n = _find(v)
+                if n:
+                    return n
+        return None
+
+    n = _find(d)
     if n:
         return n
     for p in topic.split("/"):
@@ -524,7 +552,10 @@ async function loadNodes(){
   for (const n of nodes){
     const opt = document.createElement('option');
     opt.value = n.node_id;
-    let label = n.long_name || n.short_name || n.node_id;
+
+    const disp = n.display_name || n.long_name || n.short_name || n.node_id;
+    let label = disp;
+
     if (n.short_name && n.short_name !== n.long_name) label += ` (${n.short_name})`;
     label += ` [${n.node_id}]`;
     opt.textContent = label;
