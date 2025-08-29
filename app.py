@@ -202,16 +202,39 @@ def _find_user_blocks(obj: Any) -> List[Dict[str, Any]]:
     return out
 
 def _extract_names(d: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+    """Extract short and long node names from a decoded message dict.
+
+    Meshtastic JSON/protobuf messages aren't perfectly consistent in how they
+    name the fields containing user information.  Historically both camelCase
+    (``longName``) and PascalCase (``LongName``) have been observed; more recent
+    tooling may emit snake_case (``long_name``).  The previous implementation
+    only checked the first two variants which meant nodes using snake_case
+    fields ended up without a display name and therefore appeared only by ID in
+    the web UI.
+
+    This helper now normalizes all three styles so that, regardless of the
+    source format, node names are stored and later displayed correctly.
+    """
+
+    def _from_user(u: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+        return (
+            u.get("shortName") or u.get("short_name"),
+            u.get("longName") or u.get("LongName") or u.get("long_name"),
+        )
+
     # prova vari livelli usati da JSON/decoded/payload
-    for cand in (d, d.get("payload"), d.get("decoded", {}), (d.get("decoded", {}) or {}).get("payload", {})):
+    for cand in (
+        d,
+        d.get("payload"),
+        d.get("decoded"),
+        (d.get("decoded") or {}).get("payload"),
+    ):
         if isinstance(cand, dict) and isinstance(cand.get("user"), dict):
-            u = cand["user"]
-            # gestisci entrambi i casi longName/LongName
-            return u.get("shortName"), (u.get("longName") or u.get("LongName"))
+            return _from_user(cand["user"])
+
     blocks = _find_user_blocks(d)
     if blocks:
-        u = blocks[0]
-        return u.get("shortName"), (u.get("longName") or u.get("LongName"))
+        return _from_user(blocks[0])
     return None, None
 
 def _parse_node_id(d: Dict[str, Any], topic: str) -> Optional[str]:
