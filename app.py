@@ -540,10 +540,10 @@ def api_metrics(
         rows = cur.fetchall()
 
     fams = {"temperature": [], "humidity": [], "pressure": [], "voltage": [], "current": []}
-    acc: Dict[Tuple[str, str], List[List[float]]] = {}
+    acc: Dict[Tuple[str, str], List[Dict[str, float]]] = {}
 
     def add(fam: str, label: str, ts: int, val: float):
-        acc.setdefault((fam, label), []).append([ts * 1000, float(val)])
+        acc.setdefault((fam, label), []).append({"x": ts * 1000, "y": float(val)})
 
     for r in rows:
         ts, disp, met, val = int(r["ts"]), r["disp"], r["metric"], float(r["value"])

@@ -17,8 +17,8 @@ function mkChart(ctx, yLabel){
         legend: { position: 'bottom' },
         tooltip: {
           callbacks: {
-            title: items => fmtTs(items[0].raw[0]),
-            label: item => `${item.dataset.label}: ${item.raw[1]}`
+            title: items => fmtTs(items[0].raw.x),
+            label: item => `${item.dataset.label}: ${item.raw.y}`
           }
         }
       },
@@ -62,7 +62,7 @@ async function loadData(){
   const series = data.series || {};
   for (const fam of Object.keys(charts)){
     const ds = (series[fam] || []).map(s => {
-      const last = s.data.length ? s.data[s.data.length - 1][1].toFixed(2) : 'n/a';
+      const last = s.data.length ? s.data[s.data.length - 1].y.toFixed(2) : 'n/a';
       return { label: `${s.label} — Ultimo: ${last}`, data: s.data };
     });
     charts[fam].data.datasets = ds;
