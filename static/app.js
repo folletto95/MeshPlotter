@@ -24,10 +24,7 @@ function mkChart(ctx, yLabel){
         tooltip: {
           callbacks: {
             title: items => fmtTs(items[0].raw.x),
-            label: item => {
-              const prefix = item.dataset.showNode ? `${item.dataset.node}: ` : '';
-              return `${prefix}${item.raw.y} ${item.dataset.unit}`;
-            }
+            label: item => `${item.raw.y} ${item.dataset.unit} ${item.dataset.node}`
           }
         }
       },
@@ -119,8 +116,9 @@ async function loadData(){
     const ds = (series[fam] || []).map(s => {
       const last = s.data.length ? s.data[s.data.length - 1].y.toFixed(2) : 'n/a';
       const node = s.label;
-      const label = showNode ? `${last} ${unit} ${node}` : `${last} ${unit}`;
-      return { label, data: s.data, node, unit, showNode };
+      const label = `${last} ${unit} ${node}`;
+      return { label, data: s.data, node, unit };
+
     });
     charts[fam].data.datasets = ds;
     charts[fam].update();
