@@ -110,6 +110,7 @@ async function loadData(){
   const data = await res.json();
   const series = data.series || {};
   const units = data.units || {};
+  const showNode = ids.length > 1;
   for (const fam of Object.keys(charts)){
     const unit = units[fam] || '';
     const ds = (series[fam] || []).map(s => {
@@ -117,6 +118,7 @@ async function loadData(){
       const node = s.label;
       const label = `${last} ${unit} ${node}`;
       return { label, data: s.data, node, unit };
+
     });
     charts[fam].data.datasets = ds;
     charts[fam].update();
