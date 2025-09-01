@@ -83,7 +83,7 @@ HAVE_MESHTASTIC = False
 if PROTOBUF_DECODE:
     try:
         from google.protobuf.json_format import MessageToDict
-        from meshtastic import telemetry_pb2, mesh_pb2
+        from meshtastic import telemetry_pb2, mesh_pb2, portnums_pb2
         HAVE_MESHTASTIC = True
     except Exception as e:
         raise SystemExit(
@@ -167,11 +167,23 @@ def migrate():
         DB.execute("UPDATE nodes SET last_seen = 0 WHERE last_seen IS NULL")
         DB.execute("UPDATE nodes SET info_packets = 0 WHERE info_packets IS NULL")
 
+        DB.execute("""
+            CREATE TABLE IF NOT EXISTS traceroutes (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              ts INTEGER,
+              src_id TEXT,
+              dest_id TEXT,
+              route TEXT,
+              hop_count INTEGER
+            )
+        """)
+
         # indici
         DB.execute("CREATE INDEX IF NOT EXISTS idx_telem_ts ON telemetry(ts)")
         DB.execute("CREATE INDEX IF NOT EXISTS idx_telem_nodeid ON telemetry(node_id)")
         DB.execute("CREATE INDEX IF NOT EXISTS idx_telem_metric ON telemetry(metric)")
         DB.execute("CREATE INDEX IF NOT EXISTS idx_nodes_name ON nodes(COALESCE(nickname, long_name, short_name))")
+        DB.execute("CREATE INDEX IF NOT EXISTS idx_traceroutes_ts ON traceroutes(ts)")
         DB.commit()
 migrate()
 
@@ -503,7 +515,7 @@ def normalize_flat(flat: Dict[str, float]) -> Dict[str, float]:
 def pb_to_dict(msg) -> Dict[str, Any]:
     return MessageToDict(msg, preserving_proto_field_name=True)
 
-def try_decode_protobuf(payload: bytes, *, _nested: bool = False) -> Optional[Dict[str, Any]]:
+def try_decode_protobuf(payload: bytes, *, portnum: Optional[int] = None, _nested: bool = False) -> Optional[Dict[str, Any]]:
     """Best‑effort decoding of Meshtastic protobuf payloads.
 
     The MQTT broker can forward either the raw ``MeshPacket`` binary or the
@@ -525,7 +537,7 @@ def try_decode_protobuf(payload: bytes, *, _nested: bool = False) -> Optional[Di
                 inner: Optional[Dict[str, Any]] = None
                 try:
                     if pkt.decoded and pkt.decoded.payload:
-                        inner = try_decode_protobuf(pkt.decoded.payload, _nested=True)
+                        inner = try_decode_protobuf(pkt.decoded.payload, portnum=pkt.decoded.portnum, _nested=True)
                 except Exception:
                     inner = None
                 pkt_dict = pb_to_dict(pkt)
@@ -534,6 +546,15 @@ def try_decode_protobuf(payload: bytes, *, _nested: bool = False) -> Optional[Di
                 return pkt_dict
         except Exception:
             pass
+    if portnum == getattr(portnums_pb2.PortNum, "TRACEROUTE_APP", None):
+        try:
+            rd = mesh_pb2.RouteDiscovery()
+            rd.ParseFromString(payload)
+            if len(rd.ListFields()) > 0:
+                return pb_to_dict(rd)
+        except Exception:
+            pass
+
     # Telemetry
     try:
         t = telemetry_pb2.Telemetry()
@@ -607,6 +628,22 @@ def process_mqtt_message(topic: str, payload: bytes) -> None:
             continue
         for metric, value in flat.items():
             store_metric(now_s, node_id, metric, value)
+
+    # traceroute
+    decoded = data.get("decoded") if isinstance(data.get("decoded"), dict) else None
+    if decoded and decoded.get("portnum") == "TRACEROUTE_APP":
+        payload = decoded.get("payload") or {}
+        route_nums = payload.get("route") or []
+        route_hex = [format(int(n), "x") for n in route_nums]
+        src = _norm_node_id(data.get("from")) or node_id
+        dest = _norm_node_id(data.get("to"))
+        hop_count = max(len(route_hex) - 1, 0)
+        with DB_LOCK:
+            DB.execute(
+                "INSERT INTO traceroutes(ts, src_id, dest_id, route, hop_count) VALUES(?,?,?,?,?)",
+                (now_s, src, dest, json.dumps(route_hex), hop_count),
+            )
+            DB.commit()
 
 # ---------- MQTT (una sola istanza via lifespan) ----------
 def start_mqtt():
@@ -739,6 +776,24 @@ def api_nodes():
             "alt": r["alt"],
         })
 
+    return JSONResponse(out)
+
+
+@app.get("/api/traceroutes")
+def api_traceroutes(limit: int = Query(default=100, ge=1, le=1000)):
+    with DB_LOCK:
+        cur = DB.execute(
+            "SELECT ts, src_id, dest_id, route, hop_count FROM traceroutes ORDER BY id DESC LIMIT ?",
+            (limit,),
+        )
+        rows = cur.fetchall()
+    out = []
+    for ts, src, dest, route_json, hop in rows:
+        try:
+            route = json.loads(route_json) if route_json else []
+        except Exception:
+            route = []
+        out.append({"ts": ts, "src_id": src, "dest_id": dest, "route": route, "hop_count": hop})
     return JSONResponse(out)
 
 
