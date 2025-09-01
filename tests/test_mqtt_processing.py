@@ -18,6 +18,7 @@ def reset_db():
     with app.DB_LOCK:
         app.DB.execute('DELETE FROM telemetry')
         app.DB.execute('DELETE FROM nodes')
+        app.DB.execute('DELETE FROM traceroutes')
         app.DB.commit()
 
 
@@ -103,4 +104,26 @@ def test_position_extraction_int_fields():
     assert round(row[0], 6) == 45.123456
     assert round(row[1], 6) == 7.987654
     assert row[2] == 42.0
+
+
+def test_process_traceroute_packet():
+    reset_db()
+    from meshtastic import mesh_pb2, portnums_pb2
+
+    rd = mesh_pb2.RouteDiscovery(route=[int('ff01', 16), int('a1b2', 16)])
+    pkt = mesh_pb2.MeshPacket()
+    setattr(pkt, 'from', int('ff01', 16))
+    setattr(pkt, 'to', int('a1b2', 16))
+    pkt.decoded.portnum = portnums_pb2.PortNum.TRACEROUTE_APP
+    pkt.decoded.payload = rd.SerializeToString()
+
+    app.process_mqtt_message('msh/ff01/traceroute', pkt.SerializeToString())
+    with app.DB_LOCK:
+        row = app.DB.execute(
+            'SELECT src_id, dest_id, hop_count, route FROM traceroutes'
+        ).fetchone()
+    assert row[0] == 'ff01'
+    assert row[1] == 'a1b2'
+    assert row[2] == 1
+    assert json.loads(row[3]) == ['ff01', 'a1b2']
 
