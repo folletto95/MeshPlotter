@@ -34,7 +34,7 @@ function mkChart(ctx, yLabel){
     options: {
       responsive: true, parsing: false, animation: false,
       interaction: { mode: 'nearest', intersect: false },
-      elements: { point: { radius: 3 } },
+      elements: { point: { radius: 3, borderColor: _accent, backgroundColor: _accent } },
       plugins: {
         legend: { position: 'bottom' },
         tooltip: {
