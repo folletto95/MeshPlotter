@@ -65,3 +65,25 @@ def test_process_meshpacket_message():
     with app.DB_LOCK:
         rows = app.DB.execute('SELECT node_id, metric, value FROM telemetry').fetchall()
     assert rows == [('a1b2c3', 'temperature', 29.0)]
+
+
+def test_process_json_camelcase_humidity_pressure():
+    """Ensure camelCase environment metrics are normalized correctly."""
+    reset_db()
+    msg = {
+        'environment_metrics': {
+            'relativeHumidity': 64.2,
+            'barometricPressure': 1012.3,
+        },
+        'user': {'id': 'abcd'},
+    }
+    payload = json.dumps(msg).encode()
+    app.process_mqtt_message('msh/test', payload)
+    with app.DB_LOCK:
+        rows = app.DB.execute(
+            'SELECT node_id, metric, value FROM telemetry ORDER BY metric'
+        ).fetchall()
+    assert rows == [
+        ('abcd', 'humidity', 64.2),
+        ('abcd', 'pressure', 1012.3),
+    ]
