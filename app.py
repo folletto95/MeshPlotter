@@ -361,7 +361,7 @@ def _parse_node_id(d: Dict[str, Any], topic: str) -> Optional[str]:
         return n
     for p in topic.split("/"):
         n = _norm_node_id(p)
-        if n and re.fullmatch(r"[0-9a-fA-F]{6,}", n):
+        if n and re.fullmatch(r"[0-9a-fA-F]+", n):
             return n
     return None
 
