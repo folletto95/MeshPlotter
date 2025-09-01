@@ -6,16 +6,17 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
 <style>
 :root{
-  --bd:#e5e7eb;
-  --bg:#f9fafb;
-  --card-bg:#fff;
-  --accent:#2563eb;
+  --bd:#334155;
+  --bg:#0f172a;
+  --card-bg:#1e293b;
+  --accent:#ff6d00;
+  --text:#f8fafc;
 }
 body{
   font-family:system-ui,Segoe UI,Roboto,Ubuntu,sans-serif;
   margin:16px;
   background:var(--bg);
-  color:#111;
+  color:var(--text);
 }
 header{
   display:flex;
@@ -23,14 +24,17 @@ header{
   flex-wrap:wrap;
   align-items:center;
   background:var(--card-bg);
+  color:var(--text);
   padding:12px;
   border-radius:8px;
-  box-shadow:0 1px 2px rgba(0,0,0,0.05);
+  box-shadow:0 1px 2px rgba(0,0,0,0.5);
 }
 select,button,input{
   padding:6px;
   border:1px solid var(--bd);
   border-radius:6px;
+  background:var(--card-bg);
+  color:var(--text);
 }
 button{
   background:var(--accent);
@@ -38,7 +42,8 @@ button{
   border:none;
   cursor:pointer;
 }
-button:hover{background:#1d4ed8}
+button:hover{background:#e05500}
+a{color:var(--accent)}
 select{min-width:260px}
 .toggles{
   margin-top:8px;
@@ -57,10 +62,10 @@ select{min-width:260px}
   border-radius:12px;
   padding:12px;
   background:var(--card-bg);
-  box-shadow:0 1px 3px rgba(0,0,0,0.1);
+  box-shadow:0 1px 3px rgba(0,0,0,0.5);
 }
 canvas{width:100%;height:400px}
-small{color:#666}
+small{color:#94a3b8}
 </style>
 </head>
 <body>
