@@ -51,13 +51,16 @@ select{min-width:260px}
   display:flex;
   gap:16px;
   margin-top:12px;
-  align-items:flex-start;
+  align-items:stretch;
+  height:calc(100vh - 120px);
 }
 .sidebar{
   min-width:260px;
+  height:100%;
 }
 #nodes{
   width:100%;
+  height:100%;
 }
 .toggles{
   margin-top:8px;
@@ -112,7 +115,7 @@ small{color:#94a3b8}
   <aside class="sidebar">
     <label>
       <small>Nodi (Long/Short/ID)</small><br/>
-      <select id="nodes" multiple size="15"></select>
+      <select id="nodes" multiple></select>
     </label>
   </aside>
   <div class="content" style="flex:1">
