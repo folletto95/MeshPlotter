@@ -1,0 +1,13 @@
+mqtt:
+  host: "localhost"
+  port: 1883
+  client_id: "test-client"
+  protocol: "v311"
+  topics: ["#"]
+storage:
+  sqlite_path: ":memory:"
+web:
+  host: "0.0.0.0"
+  port: 8080
+  allow_cors: true
+protobuf_decode: true
