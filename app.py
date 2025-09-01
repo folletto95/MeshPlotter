@@ -408,6 +408,22 @@ def pb_to_dict(msg) -> Dict[str, Any]:
     return MessageToDict(msg, preserving_proto_field_name=True)
 
 def try_decode_protobuf(payload: bytes) -> Optional[Dict[str, Any]]:
+    """Best‑effort decoding of Meshtastic protobuf payloads.
+
+    The MQTT broker can forward either the raw ``MeshPacket`` binary or the
+    already decoded submessages (``Telemetry``, ``User``, ``Position`` …).  We
+    try each possibility in order and return a ``dict`` representation of the
+    first message type that parses successfully.
+    """
+
+    # Full MeshPacket (contains portnum + decoded payload)
+    try:
+        pkt = mesh_pb2.MeshPacket()
+        pkt.ParseFromString(payload)
+        if len(pkt.ListFields()) > 0:
+            return pb_to_dict(pkt)
+    except Exception:
+        pass
     # Telemetry
     try:
         t = telemetry_pb2.Telemetry()
