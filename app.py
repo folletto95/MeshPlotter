@@ -457,6 +457,50 @@ def try_decode_protobuf(payload: bytes) -> Optional[Dict[str, Any]]:
         pass
     return None
 
+# ---------- MQTT message processing (shared) ----------
+def process_mqtt_message(topic: str, payload: bytes) -> None:
+    """Elabora un messaggio MQTT in formato JSON o Protobuf.
+
+    Questo helper permette di testare la logica di parsing senza
+    dipendere da un broker MQTT reale.  Il comportamento replica quello
+    del callback ``on_message`` definito in ``start_mqtt``.
+    """
+
+    now_s = int(time.time())
+    # Prova JSON, poi Protobuf se abilitato
+    data = _json_loads(payload)
+    if not isinstance(data, dict) and PROTOBUF_DECODE and HAVE_MESHTASTIC:
+        data = try_decode_protobuf(payload)
+    if not isinstance(data, dict):
+        return
+
+    uid, sname, lname = _extract_user_info(data)
+    node_id = uid or _parse_node_id(data, topic)
+    lat, lon, alt = _extract_position(data)
+    has_info = bool(uid or sname or lname)
+    if not node_id:
+        node_id = "unknown"
+        upsert_node(node_id, None, "Sconosciuto", now_s)
+    else:
+        upsert_node(node_id, sname, lname, now_s,
+                    info_packet=has_info, lat=lat, lon=lon, alt=alt)
+
+    candidates: List[Dict[str, Any]] = []
+    if "payload" in data and isinstance(data["payload"], dict):
+        candidates.append(data["payload"])
+    if any(k in data for k in ("environment_metrics", "device_metrics", "power_metrics")):
+        candidates.append(data)
+    if not candidates:
+        candidates.append(data)
+
+    for d in candidates:
+        flat_all = flatten_numeric(d)
+        flat = normalize_flat(flat_all)
+        if not flat:
+            continue
+        for metric, value in flat.items():
+            store_metric(now_s, node_id, metric, value)
+
 # ---------- MQTT (una sola istanza via lifespan) ----------
 def start_mqtt():
     proto = MQTTv311 if MQTT_PROTO == "v311" else MQTTv5
@@ -493,44 +537,7 @@ def start_mqtt():
         print(f"[MQTT] Disconnected rc={reason_code}. Retry automatico attivo.")
 
     def on_message(client, userdata, msg):
-        now_s = int(time.time())
-        # Prova JSON, poi Protobuf se abilitato
-        data = _json_loads(msg.payload)
-        if not isinstance(data, dict) and PROTOBUF_DECODE and HAVE_MESHTASTIC:
-            data = try_decode_protobuf(msg.payload)
-        if not isinstance(data, dict):
-            return
-
-
-        uid, sname, lname = _extract_user_info(data)
-        node_id = uid or _parse_node_id(data, msg.topic)
-        lat, lon, alt = _extract_position(data)
-        has_info = bool(uid or sname or lname)
-        if not node_id:
-            node_id = "unknown"
-            upsert_node(node_id, None, "Sconosciuto", now_s)
-        else:
-            upsert_node(node_id, sname, lname, now_s, info_packet=has_info, lat=lat, lon=lon, alt=alt)
-        # registra o aggiorna sempre il nodo per permettere la selezione anche
-        # quando abbiamo solo l'ID (i nomi verranno riempiti alla prima occasione)
-
-
-        # blocchi con metriche
-        candidates: List[Dict[str, Any]] = []
-        if "payload" in data and isinstance(data["payload"], dict):
-            candidates.append(data["payload"])
-        if any(k in data for k in ("environment_metrics", "device_metrics", "power_metrics")):
-            candidates.append(data)
-        if not candidates:
-            candidates.append(data)
-
-        for d in candidates:
-            flat_all = flatten_numeric(d)
-            flat = normalize_flat(flat_all)
-            if not flat:
-                continue
-            for metric, value in flat.items():
-                store_metric(now_s, node_id, metric, value)
+        process_mqtt_message(msg.topic, msg.payload)
 
     client.on_connect = on_connect
     client.on_disconnect = on_disconnect
