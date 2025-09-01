@@ -8,6 +8,7 @@ const $saveNick = document.getElementById('save-nick');
 const $showNick = document.getElementById('show-nick');
 
 let nodesMap = {};
+
 // apply theme colors to charts
 const _style = getComputedStyle(document.documentElement);
 const _textColor = _style.getPropertyValue('--text').trim();
@@ -98,6 +99,7 @@ async function loadNodes(){
     let label;
     if (useNick){
       label = n.nickname || n.long_name || n.short_name || n.node_id;
+
     } else {
       const parts = [];
       if (n.long_name) parts.push(n.long_name);
