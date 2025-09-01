@@ -86,33 +86,47 @@ for (const fam of Object.keys(charts)){
 }
 
 async function loadNodes(){
-  const res = await fetch('/api/nodes');
-  const nodes = await res.json();
-  const selected = Array.from($nodes.selectedOptions).map(o => o.value);
-  $nodes.innerHTML = '';
-  nodesMap = {};
-  const useNick = $showNick.checked;
-  for (const n of nodes){
-    nodesMap[n.node_id] = n;
-    const opt = document.createElement('option');
-    opt.value = n.node_id;
-    let label;
-    if (useNick){
-      label = n.nickname || n.long_name || n.short_name || n.node_id;
+  try {
+    const res = await fetch('/api/nodes');
+    const nodes = await res.json();
+    const selected = Array.from($nodes.selectedOptions).map(o => o.value);
+    $nodes.innerHTML = '';
+    nodesMap = {};
+    const useNick = $showNick.checked;
+    for (const n of nodes){
+      nodesMap[n.node_id] = n;
+      const opt = document.createElement('option');
+      opt.value = n.node_id;
+      let label;
+      if (useNick){
+        label = n.nickname || n.long_name || n.short_name || n.node_id;
 
-    } else {
-      const parts = [];
-      if (n.long_name) parts.push(n.long_name);
-      if (n.short_name && n.short_name !== n.long_name) parts.push(n.short_name);
-      if (!parts.length) parts.push(n.node_id);
-      label = parts.join(' / ');
+      } else {
+        const parts = [];
+        if (n.long_name) parts.push(n.long_name);
+        if (n.short_name && n.short_name !== n.long_name) parts.push(n.short_name);
+        if (!parts.length) parts.push(n.node_id);
+        label = parts.join(' / ');
+      }
+      opt.textContent = `${label} (${n.info_packets})`;
+      opt.title = `${n.node_id} — info: ${n.info_packets}`;
+      if (selected.includes(n.node_id)) opt.selected = true;
+      $nodes.appendChild(opt);
     }
-    opt.textContent = `${label} (${n.info_packets})`;
-    opt.title = `${n.node_id} — info: ${n.info_packets}`;
-    if (selected.includes(n.node_id)) opt.selected = true;
-    $nodes.appendChild(opt);
+    updateNickInput();
+    const errEl = document.getElementById('nodes-error');
+    if (errEl) errEl.remove();
+  } catch (err) {
+    console.error('Errore durante il caricamento dei nodi', err);
+    let errEl = document.getElementById('nodes-error');
+    if (!errEl) {
+      errEl = document.createElement('div');
+      errEl.id = 'nodes-error';
+      errEl.style.color = 'red';
+      $nodes.parentNode.appendChild(errEl);
+    }
+    errEl.textContent = 'Errore nel caricamento dei nodi';
   }
-  updateNickInput();
 }
 
 function updateNickInput(){
