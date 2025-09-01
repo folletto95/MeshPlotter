@@ -200,7 +200,7 @@ def upsert_node(
             DB.execute(
                 """
               UPDATE telemetry SET node_name = ?
-              WHERE node_id = ? AND (node_name IS NULL OR node_name = '' OR node_name = node_id)
+              WHERE node_id = ? AND (node_name IS NULL OR node_name = '')
             """,
                 (name_to_set, node_id),
             )
