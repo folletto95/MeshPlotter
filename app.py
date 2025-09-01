@@ -279,6 +279,7 @@ def _extract_user_info(d: Dict[str, Any]) -> Tuple[Optional[str], Optional[str],
             _clean(u.get("longName") or u.get("LongName") or u.get("long_name")),
         )
 
+    # 1. blocco "user" (come prima)
     for cand in (
         d,
         d.get("payload"),
@@ -288,9 +289,58 @@ def _extract_user_info(d: Dict[str, Any]) -> Tuple[Optional[str], Optional[str],
         if isinstance(cand, dict) and isinstance(cand.get("user"), dict):
             return _from_user(cand["user"])
 
-    blocks = _find_user_blocks(d)
-    if blocks:
-        return _from_user(blocks[0])
+    # 2. pacchetti "nodeinfo": nomi nel payload
+    p = d.get("payload")
+    if isinstance(p, dict):
+        sn = p.get("shortName") or p.get("shortname") or p.get("short_name")
+        ln = p.get("longName")  or p.get("longname")  or p.get("long_name")
+        # Se almeno uno dei due è presente, determinare l'ID nodo
+        if sn or ln:
+            # priorità: payload.id -> fromId/from -> sender -> node
+            nid = _norm_node_id(
+                p.get("id")
+                or d.get("fromId")
+                or d.get("from")
+                or d.get("sender")
+                or d.get("node")
+            )
+            def _clean(val: Any) -> Optional[str]:
+                if val is None:
+                    return None
+                s = str(val).strip()
+                return s or None
+            return (
+                nid,
+                _clean(sn),
+                _clean(ln),
+            )
+
+    # 3. fallback: cerca chiavi "shortname"/"longname" ovunque nel messaggio
+    short_n: Optional[str] = None
+    long_n: Optional[str] = None
+    def _search(obj: Any) -> None:
+        nonlocal short_n, long_n
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                kl = k.lower()
+                if kl in ("shortname", "short_name") and not short_n:
+                    s = str(v).strip()
+                    if s:
+                        short_n = s
+                elif kl in ("longname", "long_name") and not long_n:
+                    s = str(v).strip()
+                    if s:
+                        long_n = s
+                _search(v)
+        elif isinstance(obj, list):
+            for v in obj:
+                _search(v)
+    _search(d)
+    if short_n or long_n:
+        # non sappiamo l'ID del nodo da qui; _parse_node_id penserà a ricavarlo
+        return None, short_n, long_n
+
+    # Niente nomi trovati
     return None, None, None
 
 def _extract_position(d: Dict[str, Any]) -> Tuple[Optional[float], Optional[float], Optional[float]]:
