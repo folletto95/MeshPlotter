@@ -350,8 +350,20 @@ def _extract_position(d: Dict[str, Any]) -> Tuple[Optional[float], Optional[floa
         if isinstance(obj, dict):
             lat = obj.get("latitude") or obj.get("lat")
             lon = obj.get("longitude") or obj.get("lon") or obj.get("lng")
+            if lat is None and obj.get("latitude_i") is not None:
+                try:
+                    lat = float(obj.get("latitude_i")) / 1e7
+                except (TypeError, ValueError):
+                    lat = None
+            if lon is None and obj.get("longitude_i") is not None:
+                try:
+                    lon = float(obj.get("longitude_i")) / 1e7
+                except (TypeError, ValueError):
+                    lon = None
             if lat is not None and lon is not None:
                 alt = obj.get("altitude") or obj.get("alt") or obj.get("altitude_m")
+                if alt is None and obj.get("altitude_i") is not None:
+                    alt = float(obj.get("altitude_i"))
                 try:
                     lat_f = float(lat)
                     lon_f = float(lon)
