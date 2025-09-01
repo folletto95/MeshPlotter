@@ -45,6 +45,18 @@ button{
 button:hover{background:#e05500}
 a{color:var(--accent)}
 select{min-width:260px}
+.main{
+  display:flex;
+  gap:16px;
+  margin-top:12px;
+  align-items:flex-start;
+}
+.sidebar{
+  min-width:260px;
+}
+#nodes{
+  width:100%;
+}
 .toggles{
   margin-top:8px;
   display:flex;
@@ -72,10 +84,6 @@ small{color:#94a3b8}
 <header>
   <h2 style="margin:0">Meshtastic Telemetry</h2>
   <label>
-    <small>Nodi (Long/Short/ID)</small><br/>
-    <select id="nodes" multiple size="5"></select>
-  </label>
-  <label>
     <small>Intervallo</small><br/>
     <select id="range">
       <option value="3600">Ultima ora</option>
@@ -98,20 +106,30 @@ small{color:#94a3b8}
   </label>
 </header>
 
-<div class="toggles">
-  <label><input type="checkbox" id="toggle-temperature"/> °C</label>
-  <label><input type="checkbox" id="toggle-humidity"/> %</label>
-  <label><input type="checkbox" id="toggle-pressure"/> hPa</label>
-  <label><input type="checkbox" id="toggle-voltage"/> V</label>
-  <label><input type="checkbox" id="toggle-current"/> mA</label>
-</div>
+<div class="main">
+  <aside class="sidebar">
+    <label>
+      <small>Nodi (Long/Short/ID)</small><br/>
+      <select id="nodes" multiple size="15"></select>
+    </label>
+  </aside>
+  <div class="content" style="flex:1">
+    <div class="toggles">
+      <label><input type="checkbox" id="toggle-temperature"/> °C</label>
+      <label><input type="checkbox" id="toggle-humidity"/> %</label>
+      <label><input type="checkbox" id="toggle-pressure"/> hPa</label>
+      <label><input type="checkbox" id="toggle-voltage"/> V</label>
+      <label><input type="checkbox" id="toggle-current"/> mA</label>
+    </div>
 
-<div class="grid">
-  <div class="card" id="card-temp"><h3 style="margin:0 0 8px">°C</h3><canvas id="chart-temp"></canvas></div>
-  <div class="card" id="card-hum"><h3 style="margin:0 0 8px">%</h3><canvas id="chart-hum"></canvas></div>
-  <div class="card" id="card-press"><h3 style="margin:0 0 8px">hPa</h3><canvas id="chart-press"></canvas></div>
-  <div class="card" id="card-volt"><h3 style="margin:0 0 8px">V</h3><canvas id="chart-volt"></canvas></div>
-  <div class="card" id="card-curr"><h3 style="margin:0 0 8px">mA</h3><canvas id="chart-curr"></canvas></div>
+    <div class="grid">
+      <div class="card" id="card-temp"><h3 style="margin:0 0 8px">°C</h3><canvas id="chart-temp"></canvas></div>
+      <div class="card" id="card-hum"><h3 style="margin:0 0 8px">%</h3><canvas id="chart-hum"></canvas></div>
+      <div class="card" id="card-press"><h3 style="margin:0 0 8px">hPa</h3><canvas id="chart-press"></canvas></div>
+      <div class="card" id="card-volt"><h3 style="margin:0 0 8px">V</h3><canvas id="chart-volt"></canvas></div>
+      <div class="card" id="card-curr"><h3 style="margin:0 0 8px">mA</h3><canvas id="chart-curr"></canvas></div>
+    </div>
+  </div>
 </div>
 
 <script src="/static/app.js"></script>
