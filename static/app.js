@@ -151,7 +151,7 @@ async function loadData(){
 }
 
 $nodes.onchange = () => { updateNickInput(); };
-$refresh.onclick = loadData;
+$refresh.onclick = () => { loadNodes(); loadData(); };
 $saveNick.onclick = async () => {
   const id = $nodes.value;
   if (!id) return;
@@ -166,8 +166,9 @@ $saveNick.onclick = async () => {
 $showNick.onchange = () => { loadNodes(); loadData(); };
 $autoref.onchange = () => {
   if ($autoref.checked){
-    loadData();
-    window._timer = setInterval(loadData, 15000);
+    const tick = () => { loadNodes(); loadData(); };
+    tick();
+    window._timer = setInterval(tick, 15000);
   } else {
     clearInterval(window._timer);
   }
