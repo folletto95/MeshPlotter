@@ -43,7 +43,7 @@ function mkChart(ctx, yLabel){
       interaction: { mode: 'nearest', intersect: false },
       elements: { point: { radius: 3, borderColor: _accent, backgroundColor: _accent } },
       plugins: {
-        legend: { position: 'bottom' },
+        legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8 } },
         tooltip: {
           callbacks: {
             title: items => fmtTs(items[0].raw.x),
@@ -159,9 +159,11 @@ async function loadData(){
     const unit = units[fam] || '';
     const ds = (series[fam] || []).map(s => {
       const last = s.data.length ? s.data[s.data.length - 1].y.toFixed(2) : 'n/a';
-      const node = s.label;
+      const nodeId = s.node_id;
+      const short = nodesMap[nodeId]?.short_name || nodeId.slice(-4);
+      const node = short;
       const label = showNode ? `${last} ${unit} ${node}` : `${last} ${unit}`;
-      const color = colorFor(node);
+      const color = colorFor(nodeId);
       return { label, data: s.data, node, unit, showNode, borderColor: color, backgroundColor: color };
     });
     charts[fam].data.datasets = ds;
