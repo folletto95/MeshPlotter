@@ -788,33 +788,33 @@ def api_metrics(
             DB.row_factory = old_factory
 
     fams = {"temperature": [], "humidity": [], "pressure": [], "voltage": [], "current": []}
-    acc: Dict[Tuple[str, str], List[Dict[str, float]]] = {}
+    acc: Dict[Tuple[str, str], Dict[str, Any]] = {}
 
-    def add(fam: str, label: str, ts: int, val: float):
-        acc.setdefault((fam, label), []).append({"x": ts * 1000, "y": float(val)})
+    def add(fam: str, node_id: str, label: str, ts: int, val: float):
+        acc.setdefault((fam, node_id), {"node_id": node_id, "label": label, "data": []})["data"].append({"x": ts * 1000, "y": float(val)})
 
     for r in rows:
-        ts, disp, met, val = int(r["ts"]), r["disp"], r["metric"], float(r["value"])
+        ts, node_id, disp, met, val = int(r["ts"]), r["node_id"], r["disp"], r["metric"], float(r["value"])
         if met == "temperature":
-            add("temperature", f"{disp} — Temperatura ({UNITS['temperature']})", ts, val)
+            add("temperature", node_id, f"{disp} — Temperatura ({UNITS['temperature']})", ts, val)
         elif met == "humidity":
-            add("humidity", f"{disp} — Umidità ({UNITS['humidity']})", ts, val)
+            add("humidity", node_id, f"{disp} — Umidità ({UNITS['humidity']})", ts, val)
         elif met == "pressure":
-            add("pressure", f"{disp} — Pressione ({UNITS['pressure']})", ts, val)
+            add("pressure", node_id, f"{disp} — Pressione ({UNITS['pressure']})", ts, val)
         elif met == "voltage":
-            add("voltage", f"{disp} — Tensione ({UNITS['voltage']})", ts, val)
+            add("voltage", node_id, f"{disp} — Tensione ({UNITS['voltage']})", ts, val)
         elif met == "current":
-            add("current", f"{disp} — Corrente ({UNITS['current']})", ts, val)
+            add("current", node_id, f"{disp} — Corrente ({UNITS['current']})", ts, val)
         elif met in POWER_V_KEYS:
             ch = met.replace("ch", "").replace("_voltage", "")
-            add("voltage", f"{disp} — Tensione ch{ch} (V)", ts, val)
+            add("voltage", node_id, f"{disp} — Tensione ch{ch} (V)", ts, val)
         elif met in POWER_I_KEYS:
             ch = met.replace("ch", "").replace("_current", "")
-            add("current", f"{disp} — Corrente ch{ch} ({UNITS[met]})", ts, val)
+            add("current", node_id, f"{disp} — Corrente ch{ch} ({UNITS[met]})", ts, val)
 
     out = {k: [] for k in fams}
-    for (fam, label), pts in acc.items():
-        out[fam].append({"label": label, "data": pts})
+    for (fam, _node_id), ds in acc.items():
+        out[fam].append(ds)
     return JSONResponse({"units": UNITS, "series": out})
 
 # ---------- avvio ----------
