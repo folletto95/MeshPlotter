@@ -591,6 +591,20 @@ if ALLOW_CORS and HAVE_CORS:
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    """Serve the browser favicon.
+
+    Alcuni browser richiedono ``/favicon.ico`` anche se non
+    specificato nei template. Per evitare errori 404
+    restituiamo un'icona SVG testuale.
+    """
+    return FileResponse(
+        os.path.join("static", "favicon.svg"),
+        media_type="image/svg+xml",
+    )
+
 @app.get("/")
 def ui():
     return FileResponse(os.path.join("static", "index.html"))
@@ -602,13 +616,19 @@ def map_ui():
 @app.get("/api/nodes")
 def api_nodes():
     with DB_LOCK:
+        old_factory = DB.row_factory
         DB.row_factory = sqlite3.Row
-        cur = DB.execute("""
+        try:
+            cur = DB.execute(
+                """
             SELECT node_id, short_name, long_name, nickname, last_seen, info_packets, lat, lon, alt
 
             FROM nodes ORDER BY COALESCE(nickname, long_name, short_name, node_id)
-        """)
-        rows = cur.fetchall()
+        """
+            )
+            rows = cur.fetchall()
+        finally:
+            DB.row_factory = old_factory
     out = []
     for r in rows:
         disp = r["nickname"] or r["long_name"] or r["short_name"] or r["node_id"]
@@ -667,10 +687,13 @@ def api_metrics(
     name_expr = "COALESCE(nodes.nickname, telemetry.node_name, nodes.long_name, nodes.short_name, telemetry.node_id)" if use_nick else "COALESCE(telemetry.node_name, nodes.long_name, nodes.short_name, telemetry.node_id)"
 
     with DB_LOCK:
+        old_factory = DB.row_factory
         DB.row_factory = sqlite3.Row
-        if ids:
-            qs = ",".join("?" for _ in ids)
-            cur = DB.execute(f"""
+        try:
+            if ids:
+                qs = ",".join("?" for _ in ids)
+                cur = DB.execute(
+                    f"""
                 SELECT
                     telemetry.ts            AS ts,
                     telemetry.node_id       AS node_id,
@@ -681,9 +704,12 @@ def api_metrics(
                 LEFT JOIN nodes ON nodes.node_id = telemetry.node_id
                 WHERE telemetry.ts >= ? AND telemetry.node_id IN ({qs})
                 ORDER BY telemetry.ts ASC
-            """, (since_ts, *ids))
-        else:
-            cur = DB.execute(f"""
+            """,
+                    (since_ts, *ids),
+                )
+            else:
+                cur = DB.execute(
+                    f"""
                 SELECT
                     telemetry.ts            AS ts,
                     telemetry.node_id       AS node_id,
@@ -694,8 +720,12 @@ def api_metrics(
                 LEFT JOIN nodes ON nodes.node_id = telemetry.node_id
                 WHERE telemetry.ts >= ?
                 ORDER BY telemetry.ts ASC
-            """, (since_ts,))
-        rows = cur.fetchall()
+            """,
+                    (since_ts,),
+                )
+            rows = cur.fetchall()
+        finally:
+            DB.row_factory = old_factory
 
     fams = {"temperature": [], "humidity": [], "pressure": [], "voltage": [], "current": []}
     acc: Dict[Tuple[str, str], List[Dict[str, float]]] = {}
