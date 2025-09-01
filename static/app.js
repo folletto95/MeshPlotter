@@ -8,8 +8,23 @@ const $saveNick = document.getElementById('save-nick');
 const $showNick = document.getElementById('show-nick');
 
 let nodesMap = {};
+// apply theme colors to charts
+const _style = getComputedStyle(document.documentElement);
+const _textColor = _style.getPropertyValue('--text').trim();
+const _gridColor = _style.getPropertyValue('--bd').trim();
+Chart.defaults.color = _textColor;
+Chart.defaults.borderColor = _gridColor;
 
 function fmtTs(ms){ return new Date(ms).toLocaleString(); }
+
+function colorFor(str){
+  let hash = 0;
+  for (let i = 0; i < str.length; i++){
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const h = Math.abs(hash) % 360;
+  return `hsl(${h}, 70%, 60%)`;
+}
 
 function mkChart(ctx, yLabel){
   return new Chart(ctx, {
@@ -18,17 +33,23 @@ function mkChart(ctx, yLabel){
     options: {
       responsive: true, parsing: false, animation: false,
       interaction: { mode: 'nearest', intersect: false },
-      elements: { point: { radius: 3 } },
+      elements: { point: { radius: 3, borderColor: _accent, backgroundColor: _accent } },
       plugins: {
         legend: { position: 'bottom' },
         tooltip: {
           callbacks: {
             title: items => fmtTs(items[0].raw.x),
-            label: item => `${item.dataset.label}: ${item.raw.y}`
+            label: item => {
+              const prefix = item.dataset.showNode ? `${item.dataset.node}: ` : '';
+              return `${prefix}${item.raw.y} ${item.dataset.unit}`;
+            }
           }
         }
       },
-      scales: { x: { type:'time', time:{ unit:'minute' } }, y: { title: { display:true, text:yLabel } } }
+      scales: {
+        x: { type:'time', time:{ unit:'minute' }, grid:{ color:_gridColor } },
+        y: { title: { display:true, text:yLabel }, grid:{ color:_gridColor } }
+      }
     }
   });
 }
@@ -75,8 +96,9 @@ async function loadNodes(){
     const opt = document.createElement('option');
     opt.value = n.node_id;
     let label;
-    if (useNick && n.nickname) label = n.nickname;
-    else {
+    if (useNick){
+      label = n.nickname || n.long_name || n.short_name || n.node_id;
+    } else {
       const parts = [];
       if (n.long_name) parts.push(n.long_name);
       if (n.short_name && n.short_name !== n.long_name) parts.push(n.short_name);
@@ -98,7 +120,8 @@ function updateNickInput(){
 }
 
 async function loadData(){
-  const names = Array.from($nodes.selectedOptions).map(o => o.value).join(',');
+  const ids = Array.from($nodes.selectedOptions).map(o => o.value);
+  const names = ids.join(',');
   const since = $range.value;
   const url = new URL('/api/metrics', location.origin);
   if (names) url.searchParams.set('nodes', names);
@@ -107,10 +130,16 @@ async function loadData(){
   const res = await fetch(url);
   const data = await res.json();
   const series = data.series || {};
+  const units = data.units || {};
+  const showNode = ids.length > 1;
   for (const fam of Object.keys(charts)){
+    const unit = units[fam] || '';
     const ds = (series[fam] || []).map(s => {
       const last = s.data.length ? s.data[s.data.length - 1].y.toFixed(2) : 'n/a';
-      return { label: `${s.label} — Ultimo: ${last}`, data: s.data };
+      const node = s.label;
+      const label = showNode ? `${last} ${unit} ${node}` : `${last} ${unit}`;
+      const color = colorFor(node);
+      return { label, data: s.data, node, unit, showNode, borderColor: color, backgroundColor: color };
     });
     charts[fam].data.datasets = ds;
     charts[fam].update();
