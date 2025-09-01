@@ -177,6 +177,8 @@ def upsert_node(
 ):
     if not node_id and not (short_name or long_name):
         return
+    short_name = (short_name or "").strip() or None
+    long_name = (long_name or "").strip() or None
     inc = 1 if info_packet else 0
     with DB_LOCK:
         DB.execute(
@@ -256,10 +258,15 @@ def _extract_user_info(d: Dict[str, Any]) -> Tuple[Optional[str], Optional[str],
 
     def _from_user(u: Dict[str, Any]) -> Tuple[Optional[str], Optional[str], Optional[str]]:
         nid = _norm_node_id(u.get("id"))
+        def _clean(val: Optional[str]) -> Optional[str]:
+            if val is None:
+                return None
+            val = str(val).strip()
+            return val or None
         return (
             nid,
-            u.get("shortName") or u.get("short_name"),
-            u.get("longName") or u.get("LongName") or u.get("long_name"),
+            _clean(u.get("shortName") or u.get("short_name")),
+            _clean(u.get("longName") or u.get("LongName") or u.get("long_name")),
         )
 
     for cand in (
