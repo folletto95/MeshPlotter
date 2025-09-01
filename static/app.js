@@ -13,11 +13,19 @@ let nodesMap = {};
 const _style = getComputedStyle(document.documentElement);
 const _textColor = _style.getPropertyValue('--text').trim();
 const _gridColor = _style.getPropertyValue('--bd').trim();
-const _accent = _style.getPropertyValue('--accent').trim();
 Chart.defaults.color = _textColor;
 Chart.defaults.borderColor = _gridColor;
 
 function fmtTs(ms){ return new Date(ms).toLocaleString(); }
+
+function colorFor(str){
+  let hash = 0;
+  for (let i = 0; i < str.length; i++){
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const h = Math.abs(hash) % 360;
+  return `hsl(${h}, 70%, 60%)`;
+}
 
 function mkChart(ctx, yLabel){
   return new Chart(ctx, {
@@ -131,7 +139,8 @@ async function loadData(){
       const last = s.data.length ? s.data[s.data.length - 1].y.toFixed(2) : 'n/a';
       const node = s.label;
       const label = showNode ? `${last} ${unit} ${node}` : `${last} ${unit}`;
-      return { label, data: s.data, node, unit, showNode };
+      const color = colorFor(node);
+      return { label, data: s.data, node, unit, showNode, borderColor: color, backgroundColor: color };
     });
     charts[fam].data.datasets = ds;
     charts[fam].update();
