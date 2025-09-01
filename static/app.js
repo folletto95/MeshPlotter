@@ -9,6 +9,14 @@ const $showNick = document.getElementById('show-nick');
 
 let nodesMap = {};
 
+// apply theme colors to charts
+const _style = getComputedStyle(document.documentElement);
+const _textColor = _style.getPropertyValue('--text').trim();
+const _gridColor = _style.getPropertyValue('--bd').trim();
+const _accent = _style.getPropertyValue('--accent').trim();
+Chart.defaults.color = _textColor;
+Chart.defaults.borderColor = _gridColor;
+
 function fmtTs(ms){ return new Date(ms).toLocaleString(); }
 
 function mkChart(ctx, yLabel){
@@ -18,7 +26,7 @@ function mkChart(ctx, yLabel){
     options: {
       responsive: true, parsing: false, animation: false,
       interaction: { mode: 'nearest', intersect: false },
-      elements: { point: { radius: 3 } },
+      elements: { point: { radius: 3, borderColor: _accent, backgroundColor: _accent } },
       plugins: {
         legend: { position: 'bottom' },
         tooltip: {
@@ -31,7 +39,10 @@ function mkChart(ctx, yLabel){
           }
         }
       },
-      scales: { x: { type:'time', time:{ unit:'minute' } }, y: { title: { display:true, text:yLabel } } }
+      scales: {
+        x: { type:'time', time:{ unit:'minute' }, grid:{ color:_gridColor } },
+        y: { title: { display:true, text:yLabel }, grid:{ color:_gridColor } }
+      }
     }
   });
 }
