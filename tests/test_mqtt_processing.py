@@ -65,3 +65,41 @@ def test_process_meshpacket_message():
     with app.DB_LOCK:
         rows = app.DB.execute('SELECT node_id, metric, value FROM telemetry').fetchall()
     assert rows == [('a1b2c3', 'temperature', 29.0)]
+
+
+def test_position_extraction_float():
+    """Ensure latitude/longitude fields are stored for JSON payloads."""
+    reset_db()
+    msg = {
+        'user': {'id': 'posfloat'},
+        'position': {'latitude': 45.123456, 'longitude': 7.987654, 'altitude': 100.5},
+    }
+    payload = json.dumps(msg).encode()
+    app.process_mqtt_message('msh/posfloat/telemetry', payload)
+    with app.DB_LOCK:
+        row = app.DB.execute(
+            'SELECT lat, lon, alt FROM nodes WHERE node_id=?', ('posfloat',)
+        ).fetchone()
+    assert row == (45.123456, 7.987654, 100.5)
+
+
+def test_position_extraction_int_fields():
+    """Ensure latitude_i/longitude_i fields are converted to floats."""
+    reset_db()
+    msg = {
+        'user': {'id': 'posint'},
+        'position': {
+            'latitude_i': int(45.123456 * 1e7),
+            'longitude_i': int(7.987654 * 1e7),
+            'altitude': 42,
+        },
+    }
+    payload = json.dumps(msg).encode()
+    app.process_mqtt_message('msh/posint/telemetry', payload)
+    with app.DB_LOCK:
+        row = app.DB.execute(
+            'SELECT lat, lon, alt FROM nodes WHERE node_id=?', ('posint',)
+        ).fetchone()
+    assert round(row[0], 6) == 45.123456
+    assert round(row[1], 6) == 7.987654
+    assert row[2] == 42.0
