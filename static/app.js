@@ -13,6 +13,7 @@ let nodesMap = {};
 const _style = getComputedStyle(document.documentElement);
 const _textColor = _style.getPropertyValue('--text').trim();
 const _gridColor = _style.getPropertyValue('--bd').trim();
+const _accent   = _style.getPropertyValue('--accent').trim();
 if (window.Chart) {
   Chart.defaults.color = _textColor;
   Chart.defaults.borderColor = _gridColor;
