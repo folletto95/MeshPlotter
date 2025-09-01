@@ -444,19 +444,36 @@ def flatten_numeric(d: Any, prefix: str = "") -> Dict[str, float]:
     return out
 
 # --- normalizzazione etichette (telemetria pulita) ---
-_RE_ENV = re.compile(r'(?:^|\.)(environment_metrics)\.(temperature|relative_humidity|humidity|barometric_pressure|pressure)\b')
+# Meshtastic invia i nomi dei campi sia in formato snake_case sia camelCase; 
+# ad esempio "relativeHumidity" o "barometricPressure".  Dopo averli
+# convertiti in minuscolo diventano "relativehumidity" e "barometricpressure",
+# che in precedenza non venivano riconosciuti e portavano alla perdita dei
+# dati di umidità e pressione.  Estendiamo quindi le regex per intercettare
+# anche queste varianti.
+_RE_ENV = re.compile(
+    r'(?:^|\.)(environment_metrics)\.'
+    r'(temperature|relative_humidity|relativehumidity|humidity|'
+    r'barometric_pressure|barometricpressure|pressure)\b'
+)
 _RE_DEV = re.compile(r'(?:^|\.)(device_metrics)\.(voltage)\b')
 _RE_PWR = re.compile(r'(?:^|\.)(power_metrics)\.(bus_voltage|shunt_voltage|current|current_ma|current_a)\b')
-_RE_GENERIC = re.compile(r'(?:^|\.)(temp(?:erature)?|hum(?:idity)?|press(?:ure)?|volt(?:age)?|current(?:_ma|_a)?)\b', re.I)
+_RE_GENERIC = re.compile(
+    r'(?:^|\.)(temp(?:erature)?|hum(?:idity)?|relativehumidity|'
+    r'press(?:ure)?|barometricpressure|volt(?:age)?|current(?:_ma|_a)?)\b',
+    re.I,
+)
 
 def _normalize_metric(k: str, v: float) -> Optional[Tuple[str, float]]:
     k_low = k.lower()
     m = _RE_ENV.search(k_low)
     if m:
         f = m.group(2)
-        if f == "temperature": return ("temperature", v)
-        if f in ("relative_humidity", "humidity"): return ("humidity", v)
-        if f in ("barometric_pressure", "pressure"): return ("pressure", v)
+        if f == "temperature":
+            return ("temperature", v)
+        if f in ("relative_humidity", "relativehumidity", "humidity"):
+            return ("humidity", v)
+        if f in ("barometric_pressure", "barometricpressure", "pressure"):
+            return ("pressure", v)
     m = _RE_DEV.search(k_low)
     if m: return ("voltage", v)
     m = _RE_PWR.search(k_low)

@@ -66,7 +66,7 @@ def test_process_meshpacket_message():
         rows = app.DB.execute('SELECT node_id, metric, value FROM telemetry').fetchall()
     assert rows == [('a1b2c3', 'temperature', 29.0)]
 
-
+    
 def test_position_extraction_float():
     """Ensure latitude/longitude fields are stored for JSON payloads."""
     reset_db()
@@ -103,3 +103,4 @@ def test_position_extraction_int_fields():
     assert round(row[0], 6) == 45.123456
     assert round(row[1], 6) == 7.987654
     assert row[2] == 42.0
+
