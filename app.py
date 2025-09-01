@@ -424,7 +424,6 @@ def try_decode_protobuf(payload: bytes) -> Optional[Dict[str, Any]]:
             return pb_to_dict(pkt)
     except Exception:
         pass
-
     # Telemetry
     try:
         t = telemetry_pb2.Telemetry()
@@ -433,7 +432,6 @@ def try_decode_protobuf(payload: bytes) -> Optional[Dict[str, Any]]:
             return pb_to_dict(t)
     except Exception:
         pass
-
     # User (per nomi)
     try:
         u = mesh_pb2.User()
@@ -442,7 +440,6 @@ def try_decode_protobuf(payload: bytes) -> Optional[Dict[str, Any]]:
             return {"user": pb_to_dict(u)}
     except Exception:
         pass
-
     # Position (lat/lon)
     try:
         p = mesh_pb2.Position()
@@ -451,7 +448,6 @@ def try_decode_protobuf(payload: bytes) -> Optional[Dict[str, Any]]:
             return {"position": pb_to_dict(p)}
     except Exception:
         pass
-
     return None
 
 # ---------- MQTT (una sola istanza via lifespan) ----------
@@ -659,7 +655,7 @@ def api_metrics(
                 ORDER BY telemetry.ts ASC
             """, (since_ts, *ids))
         else:
-            cur = DB.execute(f"""
+            cur = DB.execute("""
                 SELECT
                     telemetry.ts            AS ts,
                     telemetry.node_id       AS node_id,
@@ -682,21 +678,21 @@ def api_metrics(
     for r in rows:
         ts, disp, met, val = int(r["ts"]), r["disp"], r["metric"], float(r["value"])
         if met == "temperature":
-            add("temperature", disp, ts, val)
+            add("temperature", f"{disp} — Temperatura ({UNITS['temperature']})", ts, val)
         elif met == "humidity":
-            add("humidity", disp, ts, val)
+            add("humidity", f"{disp} — Umidità ({UNITS['humidity']})", ts, val)
         elif met == "pressure":
-            add("pressure", disp, ts, val)
+            add("pressure", f"{disp} — Pressione ({UNITS['pressure']})", ts, val)
         elif met == "voltage":
-            add("voltage", disp, ts, val)
+            add("voltage", f"{disp} — Tensione ({UNITS['voltage']})", ts, val)
         elif met == "current":
-            add("current", disp, ts, val)
+            add("current", f"{disp} — Corrente ({UNITS['current']})", ts, val)
         elif met in POWER_V_KEYS:
             ch = met.replace("ch", "").replace("_voltage", "")
-            add("voltage", f"{disp} ch{ch}", ts, val)
+            add("voltage", f"{disp} — Tensione ch{ch} (V)", ts, val)
         elif met in POWER_I_KEYS:
             ch = met.replace("ch", "").replace("_current", "")
-            add("current", f"{disp} ch{ch}", ts, val)
+            add("current", f"{disp} — Corrente ch{ch} ({UNITS[met]})", ts, val)
 
     out = {k: [] for k in fams}
     for (fam, label), pts in acc.items():

@@ -8,7 +8,6 @@ const $saveNick = document.getElementById('save-nick');
 const $showNick = document.getElementById('show-nick');
 
 let nodesMap = {};
-
 // apply theme colors to charts
 const _style = getComputedStyle(document.documentElement);
 const _textColor = _style.getPropertyValue('--text').trim();
