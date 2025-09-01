@@ -13,8 +13,14 @@ let nodesMap = {};
 const _style = getComputedStyle(document.documentElement);
 const _textColor = _style.getPropertyValue('--text').trim();
 const _gridColor = _style.getPropertyValue('--bd').trim();
-Chart.defaults.color = _textColor;
-Chart.defaults.borderColor = _gridColor;
+if (window.Chart) {
+  Chart.defaults.color = _textColor;
+  Chart.defaults.borderColor = _gridColor;
+} else {
+  console.error('Chart.js failed to load');
+  alert('Chart.js failed to load');
+  throw new Error('Chart.js failed to load');
+}
 
 function fmtTs(ms){ return new Date(ms).toLocaleString(); }
 
