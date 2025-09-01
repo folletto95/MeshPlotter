@@ -45,3 +45,23 @@ def test_process_proto_message():
     with app.DB_LOCK:
         rows = app.DB.execute('SELECT node_id, metric, value FROM telemetry').fetchall()
     assert rows == [('abcdef', 'temperature', 31.5)]
+
+
+def test_process_meshpacket_message():
+    """Ensure that we can decode a full MeshPacket with nested telemetry."""
+    reset_db()
+    from meshtastic import telemetry_pb2, mesh_pb2, portnums_pb2
+
+    telem = telemetry_pb2.Telemetry()
+    telem.environment_metrics.temperature = 29.0
+
+    pkt = mesh_pb2.MeshPacket()
+    setattr(pkt, 'from', int('a1b2c3', 16))
+    pkt.decoded.portnum = portnums_pb2.PortNum.TELEMETRY_APP
+    pkt.decoded.payload = telem.SerializeToString()
+
+    payload = pkt.SerializeToString()
+    app.process_mqtt_message('msh/a1b2c3/telemetry', payload)
+    with app.DB_LOCK:
+        rows = app.DB.execute('SELECT node_id, metric, value FROM telemetry').fetchall()
+    assert rows == [('a1b2c3', 'temperature', 29.0)]
