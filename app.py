@@ -580,6 +580,10 @@ def process_mqtt_message(topic: str, payload: bytes) -> None:
     uid, sname, lname = _extract_user_info(data)
     node_id = uid or _parse_node_id(data, topic)
     lat, lon, alt = _extract_position(data)
+    if lat is not None and lon is not None:
+        print(f"[DBG] Position for node {node_id or '(unknown)'}: lat={lat} lon={lon} alt={alt}")
+    else:
+        print(f"[DBG] No position for node {node_id or '(unknown)'}; keys={list(data.keys())}")
     has_info = bool(uid or sname or lname)
     if not node_id:
         node_id = "unknown"
