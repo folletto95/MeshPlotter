@@ -51,7 +51,16 @@ MQTT_PROTO = (cfg["mqtt"].get("protocol", "v311") or "v311").lower()
 MQTT_TOPICS = _normalize_topics(cfg["mqtt"].get("topics"))
 TLS_CFG = cfg["mqtt"].get("tls") or {"enabled": False}
 
-DB_PATH = cfg["storage"].get("sqlite_path")
+# Percorso SQLite relativo al file di config
+_raw_db_path = cfg["storage"].get("sqlite_path")
+if not _raw_db_path:
+    raise SystemExit("[CFG] storage.sqlite_path mancante in config.yml")
+if _raw_db_path == ":memory:":
+    DB_PATH = _raw_db_path
+else:
+    cfg_dir = os.path.dirname(os.path.abspath(CFG_PATH))
+    DB_PATH = os.path.abspath(os.path.join(cfg_dir, _raw_db_path))
+
 WEB_HOST = cfg["web"].get("host", "0.0.0.0")
 WEB_PORT = int(cfg["web"].get("port", 8080))
 ALLOW_CORS = bool(cfg["web"].get("allow_cors", True))
@@ -61,6 +70,7 @@ print(f"[CFG] Loaded: {os.path.abspath(CFG_PATH)}")
 print(f"[CFG] MQTT host={MQTT_HOST} port={MQTT_PORT} client_id={MQTT_CLIENT_ID} proto={MQTT_PROTO}")
 print(f"[CFG] Topics (raw type={type(cfg['mqtt'].get('topics')).__name__}): {cfg['mqtt'].get('topics')!r}")
 print(f"[CFG] Topics (normalized): {MQTT_TOPICS}")
+print(f"[CFG] SQLite DB: {DB_PATH}")
 
 if not MQTT_HOST or not MQTT_PORT:
     raise SystemExit("[CFG] mqtt.host/port mancanti in config.yml")
