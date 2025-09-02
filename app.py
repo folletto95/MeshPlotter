@@ -461,14 +461,15 @@ def flatten_numeric(d: Any, prefix: str = "") -> Dict[str, float]:
 # convertiti in minuscolo diventano "relativehumidity" e "barometricpressure",
 # che in precedenza non venivano riconosciuti e portavano alla perdita dei
 # dati di umidità e pressione.  Estendiamo quindi le regex per intercettare
-# anche queste varianti.
+# anche queste varianti e riconoscere sia le chiavi snake_case sia quelle
+# camelCase.
 _RE_ENV = re.compile(
-    r'(?:^|\.)(environment_metrics)\.'
+    r'(?:^|\.)(environment_?metrics)\.'
     r'(temperature|relative_humidity|relativehumidity|humidity|'
     r'barometric_pressure|barometricpressure|pressure)\b'
 )
-_RE_DEV = re.compile(r'(?:^|\.)(device_metrics)\.(voltage)\b')
-_RE_PWR = re.compile(r'(?:^|\.)(power_metrics)\.(bus_voltage|shunt_voltage|current|current_ma|current_a)\b')
+_RE_DEV = re.compile(r'(?:^|\.)(device_?metrics)\.(voltage)\b')
+_RE_PWR = re.compile(r'(?:^|\.)(power_?metrics)\.(bus_voltage|shunt_voltage|current|current_ma|current_a)\b')
 _RE_GENERIC = re.compile(
     r'(?:^|\.)(temp(?:erature)?|hum(?:idity)?|relativehumidity|'
     r'press(?:ure)?|barometricpressure|volt(?:age)?|current(?:_ma|_a)?)\b',
