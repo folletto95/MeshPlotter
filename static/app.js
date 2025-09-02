@@ -96,14 +96,20 @@ async function loadNodes(){
   try {
     const res = await fetch('/api/nodes');
     const nodes = await res.json();
-    const selected = Array.from($nodes.selectedOptions).map(o => o.value);
+    const selected = Array.from($nodes.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
+    const saved = JSON.parse(localStorage.getItem('fav_nodes') || '[]');
+    const preselect = selected.length ? selected : saved;
     $nodes.innerHTML = '';
     nodesMap = {};
     const useNick = $showNick.checked;
     for (const n of nodes){
       nodesMap[n.node_id] = n;
-      const opt = document.createElement('option');
-      opt.value = n.node_id;
+      const labelEl = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = n.node_id;
+      if (preselect.includes(n.node_id)) cb.checked = true;
+      cb.onchange = () => { updateNickInput(); saveSelectedNodes(); loadData(); };
       let label;
       if (useNick){
         label = n.nickname || n.long_name || n.short_name || n.node_id;
@@ -115,10 +121,11 @@ async function loadNodes(){
         if (!parts.length) parts.push(n.node_id);
         label = parts.join(' / ');
       }
-      opt.textContent = `${label} (${n.info_packets})`;
-      opt.title = `${n.node_id} — info: ${n.info_packets}`;
-      if (selected.includes(n.node_id)) opt.selected = true;
-      $nodes.appendChild(opt);
+      labelEl.appendChild(cb);
+      labelEl.append(` ${label} (${n.info_packets})`);
+      labelEl.title = `${n.node_id} — info: ${n.info_packets}`;
+      $nodes.appendChild(labelEl);
+      $nodes.appendChild(document.createElement('br'));
     }
     updateNickInput();
     const errEl = document.getElementById('nodes-error');
@@ -137,13 +144,13 @@ async function loadNodes(){
 }
 
 function updateNickInput(){
-  const id = $nodes.value;
-  const n = nodesMap[id];
+  const first = $nodes.querySelector('input[type=checkbox]:checked');
+  const n = first ? nodesMap[first.value] : null;
   $nick.value = n && n.nickname ? n.nickname : '';
 }
 
 async function loadData(){
-  const ids = Array.from($nodes.selectedOptions).map(o => o.value);
+  const ids = Array.from($nodes.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
   const names = ids.join(',');
   const since = $range.value;
   const url = new URL('/api/metrics', location.origin);
@@ -173,10 +180,10 @@ async function loadData(){
   }
 }
 
-$nodes.onchange = () => { updateNickInput(); };
 $refresh.onclick = () => { loadNodes(); loadData(); };
 $saveNick.onclick = async () => {
-  const id = $nodes.value;
+  const first = $nodes.querySelector('input[type=checkbox]:checked');
+  const id = first ? first.value : null;
   if (!id) return;
   await fetch('/api/nodes/nickname', {
     method: 'POST',
@@ -188,13 +195,23 @@ $saveNick.onclick = async () => {
 };
 $showNick.onchange = () => { loadNodes(); loadData(); };
 $autoref.onchange = () => {
+  clearInterval(window._timer);
   if ($autoref.checked){
     const tick = () => { loadNodes(); loadData(); };
     tick();
     window._timer = setInterval(tick, 15000);
-  } else {
-    clearInterval(window._timer);
   }
 };
 
-(async function init(){ await loadNodes(); await loadData(); })();
+function saveFavNodes(ids){
+  localStorage.setItem('fav_nodes', JSON.stringify(ids));
+}
+function saveSelectedNodes(){
+  const ids = Array.from($nodes.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
+  saveFavNodes(ids);
+}
+(async function init(){
+  await loadNodes();
+  await loadData();
+  if ($autoref.checked) $autoref.onchange();
+})();
