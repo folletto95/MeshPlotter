@@ -102,12 +102,11 @@ small{color:#94a3b8}
     <input id="nick" type="text"/>
   </label>
   <button id="save-nick">Salva Nickname</button>
-
   <button id="refresh">Aggiorna</button>
   <a href="/map">Mappa</a>
   <label><input type="checkbox" id="show-nick" checked/> Mostra nickname</label>
   <label style="margin-left:auto">
-    <input type="checkbox" id="autoref"/> Auto-refresh (15s)
+    <input type="checkbox" id="autoref" checked/> Auto-refresh (15s)
   </label>
 </header>
 
@@ -115,7 +114,7 @@ small{color:#94a3b8}
   <aside class="sidebar">
     <label>
       <small>Nodi (Long/Short/ID)</small><br/>
-      <select id="nodes" multiple></select>
+      <div id="nodes"></div>
     </label>
   </aside>
   <div class="content" style="flex:1">
