@@ -35,6 +35,23 @@ def test_process_json_message():
     assert rows == [('abcd', 'temperature', 23.5)]
 
 
+def test_process_json_camelcase_env():
+    """Support camelCase environmentMetrics keys for humidity/pressure."""
+    reset_db()
+    msg = {
+        'environmentMetrics': {
+            'relativeHumidity': 40.5,
+            'barometricPressure': 1001.1,
+        },
+        'user': {'id': 'abcd'},
+    }
+    payload = json.dumps(msg).encode()
+    app.process_mqtt_message('msh/test', payload)
+    with app.DB_LOCK:
+        rows = sorted(app.DB.execute('SELECT metric, value FROM telemetry').fetchall())
+    assert rows == [('humidity', 40.5), ('pressure', 1001.1)]
+
+
 def test_process_proto_message():
     reset_db()
     from meshtastic import telemetry_pb2
