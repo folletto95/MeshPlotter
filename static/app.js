@@ -6,6 +6,8 @@ const $autoref = document.getElementById('autoref');
 const $nick = document.getElementById('nick');
 const $saveNick = document.getElementById('save-nick');
 const $showNick = document.getElementById('show-nick');
+const $favNodes = document.getElementById('fav-nodes');
+const $saveFav = document.getElementById('save-fav');
 
 let nodesMap = {};
 
@@ -97,6 +99,9 @@ async function loadNodes(){
     const res = await fetch('/api/nodes');
     const nodes = await res.json();
     const selected = Array.from($nodes.selectedOptions).map(o => o.value);
+    const saved = JSON.parse(localStorage.getItem('fav_nodes') || '[]');
+    $favNodes.value = saved.join(',');
+    const preselect = selected.length ? selected : saved;
     $nodes.innerHTML = '';
     nodesMap = {};
     const useNick = $showNick.checked;
@@ -117,7 +122,7 @@ async function loadNodes(){
       }
       opt.textContent = `${label} (${n.info_packets})`;
       opt.title = `${n.node_id} — info: ${n.info_packets}`;
-      if (selected.includes(n.node_id)) opt.selected = true;
+      if (preselect.includes(n.node_id)) opt.selected = true;
       $nodes.appendChild(opt);
     }
     updateNickInput();
@@ -173,7 +178,7 @@ async function loadData(){
   }
 }
 
-$nodes.onchange = () => { updateNickInput(); };
+$nodes.onchange = () => { updateNickInput(); saveSelectedNodes(); };
 $refresh.onclick = () => { loadNodes(); loadData(); };
 $saveNick.onclick = async () => {
   const id = $nodes.value;
@@ -186,15 +191,32 @@ $saveNick.onclick = async () => {
   await loadNodes();
   await loadData();
 };
+$saveFav.onclick = () => {
+  const ids = $favNodes.value.split(',').map(s => s.trim()).filter(Boolean);
+  saveFavNodes(ids);
+  loadNodes();
+  loadData();
+};
 $showNick.onchange = () => { loadNodes(); loadData(); };
 $autoref.onchange = () => {
+  clearInterval(window._timer);
   if ($autoref.checked){
     const tick = () => { loadNodes(); loadData(); };
     tick();
     window._timer = setInterval(tick, 15000);
-  } else {
-    clearInterval(window._timer);
   }
 };
 
-(async function init(){ await loadNodes(); await loadData(); })();
+function saveFavNodes(ids){
+  localStorage.setItem('fav_nodes', JSON.stringify(ids));
+  $favNodes.value = ids.join(',');
+}
+function saveSelectedNodes(){
+  const ids = Array.from($nodes.selectedOptions).map(o => o.value);
+  saveFavNodes(ids);
+}
+(async function init(){
+  await loadNodes();
+  await loadData();
+  if ($autoref.checked) $autoref.onchange();
+})();
