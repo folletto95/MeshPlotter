@@ -87,18 +87,14 @@ const toggles = {
 const VIEW_SETTINGS_KEY = 'view_settings';
 let _hasViewSettings = false;
 
-let _savedNodes = JSON.parse(localStorage.getItem('fav_nodes') || '[]');
-
 function saveViewSettings(){
   const settings = {
     range: $range.value,
     showNick: $showNick.checked,
     autoref: $autoref.checked,
-    toggles: Object.fromEntries(Object.entries(toggles).map(([fam, el]) => [fam, el.checked])),
-    nodes: Array.from($nodes.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value)
+    toggles: Object.fromEntries(Object.entries(toggles).map(([fam, el]) => [fam, el.checked]))
   };
   localStorage.setItem(VIEW_SETTINGS_KEY, JSON.stringify(settings));
-  localStorage.setItem('fav_nodes', JSON.stringify(settings.nodes));
 }
 
 function loadViewSettings(){
@@ -108,10 +104,7 @@ function loadViewSettings(){
   try {
     const settings = JSON.parse(raw);
     if (settings.range) $range.value = settings.range;
-    if ('showNick' in settings){
-      const v = settings.showNick;
-      $showNick.checked = v === true || v === 'true' || v === 1 || v === '1';
-    }
+    if (typeof settings.showNick === 'boolean') $showNick.checked = settings.showNick;
     if (typeof settings.autoref === 'boolean') $autoref.checked = settings.autoref;
     if (settings.toggles){
       for (const [fam, on] of Object.entries(settings.toggles)){
@@ -121,7 +114,6 @@ function loadViewSettings(){
         }
       }
     }
-    if (Array.isArray(settings.nodes)) _savedNodes = settings.nodes;
   } catch (err) {
     console.error('Failed to load view settings', err);
   }
@@ -140,7 +132,8 @@ async function loadNodes(){
     const res = await fetch('/api/nodes');
     const nodes = await res.json();
     const selected = Array.from($nodes.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
-    const preselect = selected.length ? selected : _savedNodes;
+    const saved = JSON.parse(localStorage.getItem('fav_nodes') || '[]');
+    const preselect = selected.length ? selected : saved;
     $nodes.innerHTML = '';
     nodesMap = {};
     const useNick = $showNick.checked;
@@ -151,7 +144,7 @@ async function loadNodes(){
       cb.type = 'checkbox';
       cb.value = n.node_id;
       if (preselect.includes(n.node_id)) cb.checked = true;
-      cb.onchange = () => { updateNickInput(); saveViewSettings(); loadData(); };
+      cb.onchange = () => { updateNickInput(); saveSelectedNodes(); loadData(); };
       let label;
       if (useNick){
         label = n.nickname || n.long_name || n.short_name || n.node_id;
@@ -246,6 +239,14 @@ $autoref.onchange = () => {
     window._timer = setInterval(tick, 15000);
   }
 };
+
+function saveFavNodes(ids){
+  localStorage.setItem('fav_nodes', JSON.stringify(ids));
+}
+function saveSelectedNodes(){
+  const ids = Array.from($nodes.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
+  saveFavNodes(ids);
+}
 (async function init(){
   loadViewSettings();
   await loadNodes();
