@@ -442,6 +442,23 @@ def _store_traceroute(node_id: str, now_s: int, data: Dict[str, Any]) -> None:
         DB.commit()
 
 
+def _store_message(node_id: str, now_s: int, data: Dict[str, Any]) -> None:
+    """Persist any incoming message for later inspection."""
+
+    portnum: Optional[str] = None
+    decoded = data.get("decoded") if isinstance(data.get("decoded"), dict) else None
+    if decoded and isinstance(decoded.get("portnum"), str):
+        portnum = decoded.get("portnum")
+    elif isinstance(data.get("portnum"), str):
+        portnum = data.get("portnum")
+
+    with DB_LOCK:
+        DB.execute(
+            "INSERT INTO messages(ts, node_id, portnum, raw_json) VALUES(?,?,?,?)",
+            (now_s, node_id, portnum, json.dumps(data)),
+        )
+        DB.commit()
+
 def process_mqtt_message(topic: str, payload: bytes) -> None:
     """Elabora un messaggio MQTT in formato JSON o Protobuf."""
 
@@ -453,3 +470,4 @@ def process_mqtt_message(topic: str, payload: bytes) -> None:
     node_id = _process_node(data, topic, now_s)
     _store_metrics(node_id, now_s, data)
     _store_traceroute(node_id, now_s, data)
+    _store_message(node_id, now_s, data)

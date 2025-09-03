@@ -2,6 +2,8 @@
 
 MeshPlotter collects telemetry data from Meshtastic MQTT topics, stores them in SQLite and provides a simple web dashboard built with FastAPI and Chart.js.
 
+All MQTT packets, including text messages, waypoints and other application types, are stored in the `messages` table for future use alongside the parsed telemetry and traceroute information.
+
 ## Quick start
 
 1. Copy `example.config.yml` to `config.yml` and adjust the broker settings.
