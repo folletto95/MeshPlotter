@@ -86,6 +86,7 @@ const toggles = {
 };
 const VIEW_SETTINGS_KEY = 'view_settings';
 let _hasViewSettings = false;
+
 let _savedNodes = JSON.parse(localStorage.getItem('fav_nodes') || '[]');
 
 function saveViewSettings(){
