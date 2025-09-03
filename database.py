@@ -98,12 +98,25 @@ def migrate() -> None:
             """,
         )
 
+        DB.execute(
+            """
+            CREATE TABLE IF NOT EXISTS messages (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              ts INTEGER,
+              node_id TEXT,
+              portnum TEXT,
+              raw_json TEXT
+            )
+            """,
+        )
+
         # indici
         DB.execute("CREATE INDEX IF NOT EXISTS idx_telem_ts ON telemetry(ts)")
         DB.execute("CREATE INDEX IF NOT EXISTS idx_telem_nodeid ON telemetry(node_id)")
         DB.execute("CREATE INDEX IF NOT EXISTS idx_telem_metric ON telemetry(metric)")
         DB.execute("CREATE INDEX IF NOT EXISTS idx_nodes_name ON nodes(COALESCE(nickname, long_name, short_name))")
         DB.execute("CREATE INDEX IF NOT EXISTS idx_traceroutes_ts ON traceroutes(ts)")
+        DB.execute("CREATE INDEX IF NOT EXISTS idx_messages_ts ON messages(ts)")
         DB.commit()
 
 

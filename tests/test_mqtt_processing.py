@@ -19,6 +19,7 @@ def reset_db():
         app.DB.execute('DELETE FROM telemetry')
         app.DB.execute('DELETE FROM nodes')
         app.DB.execute('DELETE FROM traceroutes')
+        app.DB.execute('DELETE FROM messages')
         app.DB.commit()
 
 
@@ -143,4 +144,25 @@ def test_process_traceroute_packet():
     assert row[1] == 'a1b2'
     assert row[2] == 1
     assert json.loads(row[3]) == ['ff01', 'a1b2']
+
+
+def test_store_generic_message():
+    reset_db()
+    msg = {
+        'from': 'abcd',
+        'decoded': {
+            'portnum': 'TEXT_MESSAGE_APP',
+            'payload': {'text': 'hello'},
+        },
+    }
+    payload = json.dumps(msg).encode()
+    app.process_mqtt_message('msh/abcd/text', payload)
+    with app.DB_LOCK:
+        row = app.DB.execute(
+            'SELECT node_id, portnum, raw_json FROM messages'
+        ).fetchone()
+    data = json.loads(row[2])
+    assert row[0] == 'abcd'
+    assert row[1] == 'TEXT_MESSAGE_APP'
+    assert data['decoded']['payload']['text'] == 'hello'
 

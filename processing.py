@@ -375,15 +375,39 @@ def _decode_message(payload: bytes) -> Optional[Dict[str, Any]]:
     return data if isinstance(data, dict) else None
 
 
-def _process_node(data: Dict[str, Any], topic: str, now_s: int) -> str:
+def _extract_portnum(data: Dict[str, Any]) -> Optional[str]:
+    """Retrieve the Meshtastic port number from a decoded message."""
+
+    decoded = data.get("decoded") if isinstance(data.get("decoded"), dict) else None
+    if decoded and isinstance(decoded.get("portnum"), str):
+        return decoded.get("portnum")
+    if isinstance(data.get("portnum"), str):
+        return data.get("portnum")
+    return None
+
+
+def _process_node(data: Dict[str, Any], topic: str, now_s: int, portnum: Optional[str]) -> str:
     uid, sname, lname = _extract_user_info(data)
     topic_id = _parse_node_id(data, topic)
     node_id = uid or topic_id
-    lat, lon, alt = _extract_position(data)
-    if lat is not None and lon is not None:
-        print(f"[DBG] Position for node {node_id or '(unknown)'}: lat={lat} lon={lon} alt={alt}")
-    else:
-        print(f"[DBG] No position for node {node_id or '(unknown)'}; keys={list(data.keys())}")
+    lat = lon = alt = None
+    should_locate = False
+    if portnum in {"POSITION_APP", "NODEINFO_APP", "WAYPOINT_APP"}:
+        should_locate = True
+    elif "position" in data or (
+        isinstance(data.get("payload"), dict) and "position" in data["payload"]
+    ):
+        should_locate = True
+    if should_locate:
+        lat, lon, alt = _extract_position(data)
+        if lat is not None and lon is not None:
+            print(
+                f"[DBG] Position for node {node_id or '(unknown)'}: lat={lat} lon={lon} alt={alt}"
+            )
+        else:
+            print(
+                f"[DBG] No position for node {node_id or '(unknown)'}; keys={list(data.keys())}"
+            )
     has_info = bool(uid or sname or lname)
     if not node_id:
         node_id = "unknown"
@@ -442,6 +466,18 @@ def _store_traceroute(node_id: str, now_s: int, data: Dict[str, Any]) -> None:
         DB.commit()
 
 
+def _store_message(
+    node_id: str, now_s: int, data: Dict[str, Any], portnum: Optional[str]
+) -> None:
+    """Persist any incoming message for later inspection."""
+
+    with DB_LOCK:
+        DB.execute(
+            "INSERT INTO messages(ts, node_id, portnum, raw_json) VALUES(?,?,?,?)",
+            (now_s, node_id, portnum, json.dumps(data)),
+        )
+        DB.commit()
+
 def process_mqtt_message(topic: str, payload: bytes) -> None:
     """Elabora un messaggio MQTT in formato JSON o Protobuf."""
 
@@ -450,6 +486,8 @@ def process_mqtt_message(topic: str, payload: bytes) -> None:
     if not data:
         return
 
-    node_id = _process_node(data, topic, now_s)
+    portnum = _extract_portnum(data)
+    node_id = _process_node(data, topic, now_s, portnum)
     _store_metrics(node_id, now_s, data)
     _store_traceroute(node_id, now_s, data)
+    _store_message(node_id, now_s, data, portnum)
