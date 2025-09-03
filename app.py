@@ -583,36 +583,53 @@ def try_decode_protobuf(payload: bytes, *, portnum: Optional[int] = None, _neste
     return None
 
 # ---------- MQTT message processing (shared) ----------
-def process_mqtt_message(topic: str, payload: bytes) -> None:
-    """Elabora un messaggio MQTT in formato JSON o Protobuf.
 
-    Questo helper permette di testare la logica di parsing senza
-    dipendere da un broker MQTT reale.  Il comportamento replica quello
-    del callback ``on_message`` definito in ``start_mqtt``.
-    """
+def _decode_message(payload: bytes) -> Optional[Dict[str, Any]]:
+    """Try to decode a MQTT payload into a dictionary."""
 
-    now_s = int(time.time())
-    # Prova JSON, poi Protobuf se abilitato
     data = _json_loads(payload)
     if not isinstance(data, dict) and PROTOBUF_DECODE and HAVE_MESHTASTIC:
         data = try_decode_protobuf(payload)
-    if not isinstance(data, dict):
-        return
+    return data if isinstance(data, dict) else None
+
+
+def _process_node(data: Dict[str, Any], topic: str, now_s: int) -> str:
+    """Extract node information and update the DB.
+
+    Returns the resolved node_id which is guaranteed to be non-empty.
+    """
 
     uid, sname, lname = _extract_user_info(data)
     node_id = uid or _parse_node_id(data, topic)
     lat, lon, alt = _extract_position(data)
     if lat is not None and lon is not None:
-        print(f"[DBG] Position for node {node_id or '(unknown)'}: lat={lat} lon={lon} alt={alt}")
+        print(
+            f"[DBG] Position for node {node_id or '(unknown)'}: lat={lat} lon={lon} alt={alt}"
+        )
     else:
-        print(f"[DBG] No position for node {node_id or '(unknown)'}; keys={list(data.keys())}")
+        print(
+            f"[DBG] No position for node {node_id or '(unknown)'}; keys={list(data.keys())}"
+        )
     has_info = bool(uid or sname or lname)
     if not node_id:
         node_id = "unknown"
         upsert_node(node_id, None, "Sconosciuto", now_s)
     else:
-        upsert_node(node_id, sname, lname, now_s,
-                    info_packet=has_info, lat=lat, lon=lon, alt=alt)
+        upsert_node(
+            node_id,
+            sname,
+            lname,
+            now_s,
+            info_packet=has_info,
+            lat=lat,
+            lon=lon,
+            alt=alt,
+        )
+    return node_id
+
+
+def _store_metrics(node_id: str, now_s: int, data: Dict[str, Any]) -> None:
+    """Flatten metrics from a message and store them in the DB."""
 
     candidates: List[Dict[str, Any]] = []
     if "payload" in data and isinstance(data["payload"], dict):
@@ -630,21 +647,43 @@ def process_mqtt_message(topic: str, payload: bytes) -> None:
         for metric, value in flat.items():
             store_metric(now_s, node_id, metric, value)
 
-    # traceroute
+
+def _store_traceroute(node_id: str, now_s: int, data: Dict[str, Any]) -> None:
+    """Persist traceroute information if present in the message."""
+
     decoded = data.get("decoded") if isinstance(data.get("decoded"), dict) else None
-    if decoded and decoded.get("portnum") == "TRACEROUTE_APP":
-        payload = decoded.get("payload") or {}
-        route_nums = payload.get("route") or []
-        route_hex = [format(int(n), "x") for n in route_nums]
-        src = _norm_node_id(data.get("from")) or node_id
-        dest = _norm_node_id(data.get("to"))
-        hop_count = max(len(route_hex) - 1, 0)
-        with DB_LOCK:
-            DB.execute(
-                "INSERT INTO traceroutes(ts, src_id, dest_id, route, hop_count) VALUES(?,?,?,?,?)",
-                (now_s, src, dest, json.dumps(route_hex), hop_count),
-            )
-            DB.commit()
+    if not (decoded and decoded.get("portnum") == "TRACEROUTE_APP"):
+        return
+    payload = decoded.get("payload") or {}
+    route_nums = payload.get("route") or []
+    route_hex = [format(int(n), "x") for n in route_nums]
+    src = _norm_node_id(data.get("from")) or node_id
+    dest = _norm_node_id(data.get("to"))
+    hop_count = max(len(route_hex) - 1, 0)
+    with DB_LOCK:
+        DB.execute(
+            "INSERT INTO traceroutes(ts, src_id, dest_id, route, hop_count) VALUES(?,?,?,?,?)",
+            (now_s, src, dest, json.dumps(route_hex), hop_count),
+        )
+        DB.commit()
+
+
+def process_mqtt_message(topic: str, payload: bytes) -> None:
+    """Elabora un messaggio MQTT in formato JSON o Protobuf.
+
+    Questo helper permette di testare la logica di parsing senza
+    dipendere da un broker MQTT reale.  Il comportamento replica quello
+    del callback ``on_message`` definito in ``start_mqtt``.
+    """
+
+    now_s = int(time.time())
+    data = _decode_message(payload)
+    if not data:
+        return
+
+    node_id = _process_node(data, topic, now_s)
+    _store_metrics(node_id, now_s, data)
+    _store_traceroute(node_id, now_s, data)
 
 # ---------- MQTT (una sola istanza via lifespan) ----------
 def start_mqtt():
