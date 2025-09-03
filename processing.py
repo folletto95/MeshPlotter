@@ -464,13 +464,12 @@ def _store_traceroute(node_id: str, now_s: int, data: Dict[str, Any]) -> None:
             (now_s, src, dest, json.dumps(route_hex), hop_count),
         )
         DB.commit()
-
-
+        
+        
 def _store_message(
     node_id: str, now_s: int, data: Dict[str, Any], portnum: Optional[str]
 ) -> None:
     """Persist any incoming message for later inspection."""
-
     with DB_LOCK:
         DB.execute(
             "INSERT INTO messages(ts, node_id, portnum, raw_json) VALUES(?,?,?,?)",
