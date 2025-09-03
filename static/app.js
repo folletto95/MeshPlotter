@@ -84,11 +84,63 @@ const toggles = {
   voltage:     document.getElementById('toggle-voltage'),
   current:     document.getElementById('toggle-current')
 };
+const VIEW_SETTINGS_KEY = 'view_settings';
+let _hasViewSettings = false;
+let _savedNodes = [];
+try {
+  const tmp = JSON.parse(localStorage.getItem('fav_nodes') || '[]');
+  if (Array.isArray(tmp)) _savedNodes = tmp;
+} catch (err) {
+  console.error('Failed to parse saved nodes', err);
+}
+
+function saveViewSettings(){
+  const settings = {
+    range: $range.value,
+    showNick: $showNick.checked,
+    autoref: $autoref.checked,
+    toggles: Object.fromEntries(Object.entries(toggles).map(([fam, el]) => [fam, el.checked])),
+    nodes: Array.from($nodes.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value)
+  };
+  try {
+    localStorage.setItem(VIEW_SETTINGS_KEY, JSON.stringify(settings));
+    localStorage.setItem('fav_nodes', JSON.stringify(settings.nodes));
+  } catch (err) {
+    console.error('Failed to save view settings', err);
+  }
+}
+
+function loadViewSettings(){
+  try {
+    const raw = localStorage.getItem(VIEW_SETTINGS_KEY);
+    if (!raw) return;
+    const settings = JSON.parse(raw);
+    _hasViewSettings = true;
+    if (settings.range) $range.value = settings.range;
+    if ('showNick' in settings){
+      const v = settings.showNick;
+      $showNick.checked = v === true || v === 'true' || v === 1 || v === '1';
+    }
+    if (typeof settings.autoref === 'boolean') $autoref.checked = settings.autoref;
+    if (settings.toggles){
+      for (const [fam, on] of Object.entries(settings.toggles)){
+        if (toggles[fam]){
+          toggles[fam].checked = on;
+          cards[fam].style.display = on ? '' : 'none';
+        }
+      }
+    }
+    if (Array.isArray(settings.nodes)) _savedNodes = settings.nodes;
+  } catch (err) {
+    console.error('Failed to load view settings', err);
+  }
+}
 
 for (const fam of Object.keys(charts)){
   cards[fam].style.display = 'none';
   toggles[fam].onchange = () => {
     cards[fam].style.display = toggles[fam].checked ? '' : 'none';
+    saveViewSettings();
   };
 }
 
@@ -97,8 +149,7 @@ async function loadNodes(){
     const res = await fetch('/api/nodes');
     const nodes = await res.json();
     const selected = Array.from($nodes.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
-    const saved = JSON.parse(localStorage.getItem('fav_nodes') || '[]');
-    const preselect = selected.length ? selected : saved;
+    const preselect = selected.length ? selected : _savedNodes;
     $nodes.innerHTML = '';
     nodesMap = {};
     const useNick = $showNick.checked;
@@ -109,7 +160,7 @@ async function loadNodes(){
       cb.type = 'checkbox';
       cb.value = n.node_id;
       if (preselect.includes(n.node_id)) cb.checked = true;
-      cb.onchange = () => { updateNickInput(); saveSelectedNodes(); loadData(); };
+      cb.onchange = () => { updateNickInput(); saveViewSettings(); loadData(); };
       let label;
       if (useNick){
         label = n.nickname || n.long_name || n.short_name || n.node_id;
@@ -175,7 +226,7 @@ async function loadData(){
     });
     charts[fam].data.datasets = ds;
     charts[fam].update();
-    if (ds.length > 0) toggles[fam].checked = true;
+    if (ds.length > 0 && !_hasViewSettings) toggles[fam].checked = true;
     cards[fam].style.display = toggles[fam].checked ? '' : 'none';
   }
 }
@@ -193,8 +244,10 @@ $saveNick.onclick = async () => {
   await loadNodes();
   await loadData();
 };
-$showNick.onchange = () => { loadNodes(); loadData(); };
+$range.onchange = () => { saveViewSettings(); loadData(); };
+$showNick.onchange = () => { saveViewSettings(); loadNodes(); loadData(); };
 $autoref.onchange = () => {
+  saveViewSettings();
   clearInterval(window._timer);
   if ($autoref.checked){
     const tick = () => { loadNodes(); loadData(); };
@@ -202,16 +255,11 @@ $autoref.onchange = () => {
     window._timer = setInterval(tick, 15000);
   }
 };
-
-function saveFavNodes(ids){
-  localStorage.setItem('fav_nodes', JSON.stringify(ids));
-}
-function saveSelectedNodes(){
-  const ids = Array.from($nodes.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
-  saveFavNodes(ids);
-}
+window.addEventListener('beforeunload', saveViewSettings);
 (async function init(){
+  loadViewSettings();
   await loadNodes();
   await loadData();
   if ($autoref.checked) $autoref.onchange();
+  saveViewSettings();
 })();
