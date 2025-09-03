@@ -84,11 +84,46 @@ const toggles = {
   voltage:     document.getElementById('toggle-voltage'),
   current:     document.getElementById('toggle-current')
 };
+const VIEW_SETTINGS_KEY = 'view_settings';
+let _hasViewSettings = false;
+
+function saveViewSettings(){
+  const settings = {
+    range: $range.value,
+    showNick: $showNick.checked,
+    autoref: $autoref.checked,
+    toggles: Object.fromEntries(Object.entries(toggles).map(([fam, el]) => [fam, el.checked]))
+  };
+  localStorage.setItem(VIEW_SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function loadViewSettings(){
+  const raw = localStorage.getItem(VIEW_SETTINGS_KEY);
+  if (!raw) return;
+  _hasViewSettings = true;
+  try {
+    const settings = JSON.parse(raw);
+    if (settings.range) $range.value = settings.range;
+    if (typeof settings.showNick === 'boolean') $showNick.checked = settings.showNick;
+    if (typeof settings.autoref === 'boolean') $autoref.checked = settings.autoref;
+    if (settings.toggles){
+      for (const [fam, on] of Object.entries(settings.toggles)){
+        if (toggles[fam]){
+          toggles[fam].checked = on;
+          cards[fam].style.display = on ? '' : 'none';
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load view settings', err);
+  }
+}
 
 for (const fam of Object.keys(charts)){
   cards[fam].style.display = 'none';
   toggles[fam].onchange = () => {
     cards[fam].style.display = toggles[fam].checked ? '' : 'none';
+    saveViewSettings();
   };
 }
 
@@ -175,7 +210,7 @@ async function loadData(){
     });
     charts[fam].data.datasets = ds;
     charts[fam].update();
-    if (ds.length > 0) toggles[fam].checked = true;
+    if (ds.length > 0 && !_hasViewSettings) toggles[fam].checked = true;
     cards[fam].style.display = toggles[fam].checked ? '' : 'none';
   }
 }
@@ -193,8 +228,10 @@ $saveNick.onclick = async () => {
   await loadNodes();
   await loadData();
 };
-$showNick.onchange = () => { loadNodes(); loadData(); };
+$range.onchange = () => { saveViewSettings(); loadData(); };
+$showNick.onchange = () => { saveViewSettings(); loadNodes(); loadData(); };
 $autoref.onchange = () => {
+  saveViewSettings();
   clearInterval(window._timer);
   if ($autoref.checked){
     const tick = () => { loadNodes(); loadData(); };
@@ -211,7 +248,9 @@ function saveSelectedNodes(){
   saveFavNodes(ids);
 }
 (async function init(){
+  loadViewSettings();
   await loadNodes();
   await loadData();
   if ($autoref.checked) $autoref.onchange();
+  saveViewSettings();
 })();
