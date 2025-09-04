@@ -248,6 +248,11 @@ _RE_GENERIC = re.compile(
 
 def _normalize_metric(k: str, v: float) -> Optional[Tuple[str, float]]:
     k_low = k.lower()
+    # Official telemetry docs define `barometricPressure` in EnvironmentMetrics
+    # (https://meshtastic.org/docs/developers/protobufs/telemetry). Handle it
+    # explicitly even if the prefix is missing.
+    if "barometricpressure" in k_low or "barometric_pressure" in k_low:
+        return ("pressure", v)
     m = _RE_ENV.search(k_low)
     if m:
         f = m.group(2)

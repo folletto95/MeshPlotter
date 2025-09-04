@@ -53,6 +53,22 @@ def test_process_json_camelcase_env():
     assert rows == [('humidity', 40.5), ('pressure', 1001.1)]
 
 
+
+def test_process_json_snakecase_pressure():
+    """Extract barometric_pressure fields per telemetry docs."""
+    reset_db()
+    msg = {
+        'environment_metrics': {
+            'barometric_pressure': 999.9,
+        },
+        'user': {'id': 'abcd'},
+    }
+    payload = json.dumps(msg).encode()
+    app.process_mqtt_message('msh/test', payload)
+    with app.DB_LOCK:
+        rows = app.DB.execute('SELECT metric, value FROM telemetry').fetchall()
+    assert rows == [('pressure', 999.9)]
+
 def test_nodeinfo_pressure_extraction():
     """Extract pressure metric from full NodeInfo messages."""
     reset_db()
