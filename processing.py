@@ -430,10 +430,18 @@ def _store_metrics(node_id: str, now_s: int, data: Dict[str, Any]) -> None:
     """Flatten metrics from a message and store them in the DB."""
 
     candidates: List[Dict[str, Any]] = []
-    if "payload" in data and isinstance(data["payload"], dict):
+    if isinstance(data.get("payload"), dict):
         candidates.append(data["payload"])
-    if any(k in data for k in ("environment_metrics", "device_metrics", "power_metrics")):
-        candidates.append(data)
+    for k in (
+        "environment_metrics",
+        "device_metrics",
+        "power_metrics",
+        "environmentMetrics",
+        "deviceMetrics",
+        "powerMetrics",
+    ):
+        if isinstance(data.get(k), dict):
+            candidates.append(data[k])
     if not candidates:
         candidates.append(data)
 
