@@ -16,7 +16,9 @@ async function loadNodes(){
   let first = true;
   for (const n of nodes){
     if (n.lat != null && n.lon != null){
-      const name = n.long_name || n.short_name || n.node_id;
+      const short = n.short_name != null ? n.short_name : n.node_id;
+      const name = n.nickname || n.long_name || short;
+
       const m = L.marker([n.lat, n.lon]).addTo(map);
       m.bindTooltip(String(short), {permanent:true, direction:'top', className:'node-label'});
       const last = n.last_seen ? new Date(n.last_seen*1000).toLocaleString() : '';
