@@ -23,11 +23,22 @@ async function loadNodes(){
   }
 }
 
+
+function loadSettings(){
+  document.getElementById('mqttServer').value=localStorage.getItem('mqttServer')||'';
+}
+
 document.getElementById('save').addEventListener('click',()=>{
   const id=document.getElementById('centerNode').value;
   if(id) localStorage.setItem('centerNodeId',id);
   else localStorage.removeItem('centerNodeId');
+  const srv=document.getElementById('mqttServer').value.trim();
+  if(srv) localStorage.setItem('mqttServer',srv);
+  else localStorage.removeItem('mqttServer');
   alert('Salvato');
 });
 
-window.addEventListener('DOMContentLoaded',loadNodes);
+window.addEventListener('DOMContentLoaded',()=>{
+  loadNodes();
+  loadSettings();
+});

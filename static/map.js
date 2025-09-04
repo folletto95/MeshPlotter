@@ -54,6 +54,7 @@ async function loadNodes(){
         const m = L.marker(pos,{icon}).addTo(map);
         const last = n.last_seen ? new Date(n.last_seen*1000).toLocaleString() : '';
         const alt = n.alt != null ? `<br/>Alt: ${n.alt} m` : '';
+
         const checked = nodeRouteFilter === n.node_id ? 'checked' : '';
         m.bindPopup(`<b>${name}</b><br/>ID: ${n.node_id}<br/>Ultimo: ${last}${alt}<br/><label><input type="checkbox" onclick="viewNodeRoutes('${n.node_id}', this.checked)" ${checked}/> Visualizza tracce nodo</label>`);
         nodeMarkers.set(n.node_id,{marker:m,short:n.short_name||''});
@@ -213,6 +214,7 @@ function setNamesVisibility(vis){
   });
 }
 
+
 function viewNodeRoutes(nodeId, checked){
   nodeRouteFilter = checked ? nodeId : null;
   if (checked && !routesVisible){
@@ -220,6 +222,7 @@ function viewNodeRoutes(nodeId, checked){
     setRoutesVisibility(true);
   }
   loadTraceroutes();
+
 }
 
 function removeNodeRoutes(nodeId){
