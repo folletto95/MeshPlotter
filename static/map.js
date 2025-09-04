@@ -102,8 +102,7 @@ async function loadTraceroutes(){
     }
     if (path.length >= 2){
       const color = hopColors[Math.min(r.hop_count, hopColors.length-1)];
-      const defaultWeight = 4;
-      const line = L.polyline(path, {color, weight: defaultWeight});
+      const line = L.polyline(path, {color, weight:2});
       line.bindTooltip(`${r.hop_count} hop${r.hop_count===1?'':'s'}`);
 
       const srcNode = nodes.find(nd => nd.node_id === r.src_id) || {};
@@ -115,16 +114,11 @@ async function loadTraceroutes(){
         distance = haversine(srcNode.lat, srcNode.lon, destNode.lat, destNode.lon);
       }
       line.info = {srcName, destName, ts:r.ts, distance, radio:r.radio};
-      line.on('click', e => {
-        const wasFocused = focusLine === line;
-        highlightRoute(line);
-        if (wasFocused) showRouteInfo(line, e.latlng);
-      });
+      line.on('click', e => {highlightRoute(line); if (focusLine === line) showRouteInfo(line, e.latlng);});
 
       line.nodeIds = ids;
       line.defaultColor = color;
-      line.defaultWeight = defaultWeight;
-      const markers = path.map(pt => L.circleMarker(pt, {radius:5, color}));
+      const markers = path.map(pt => L.circleMarker(pt, {radius:4, color}));
       routeLines.push(line);
       routeMarkers.set(line, markers);
       if (routesVisible){
@@ -140,7 +134,7 @@ function highlightRoute(line){
   if (focusLine === line){
     routeLines.forEach(l => {
       if (!map.hasLayer(l)){
-        l.addTo(map).setStyle({color:l.defaultColor, weight:l.defaultWeight});
+        l.addTo(map).setStyle({color:l.defaultColor, weight:2});
         routeMarkers.get(l).forEach(m => m.addTo(map).setStyle({color:l.defaultColor}));
       }
     });
@@ -149,7 +143,7 @@ function highlightRoute(line){
   } else {
     routeLines.forEach(l => {
       if (l === line){
-        l.setStyle({color:'#0ff', weight:l.defaultWeight + 2}).bringToFront();
+        l.setStyle({color:'#0ff', weight:4}).bringToFront();
         routeMarkers.get(l).forEach(m => m.addTo(map).setStyle({color:'#0ff'}).bringToFront());
       } else {
         map.removeLayer(l);
@@ -169,14 +163,14 @@ function showRouteInfo(line, latlng){
     radio = Object.entries(info.radio).map(([k,v]) => `${k}: ${v}`).join('<br/>');
   }
   const html = `<b>${info.srcName||''}</b> → <b>${info.destName||''}</b><br/>${time}<br/>Distanza: ${dist}<br/>${radio}`;
-  L.popup({autoPan:false}).setLatLng(latlng).setContent(html).openOn(map);
+  L.popup().setLatLng(latlng).setContent(html).openOn(map);
 }
 
 function setRoutesVisibility(vis){
   routesVisible = vis;
   routeLines.forEach(l => {
     if (vis){
-      l.addTo(map).setStyle({color:l.defaultColor, weight:l.defaultWeight});
+      l.addTo(map).setStyle({color:l.defaultColor, weight:2});
       routeMarkers.get(l).forEach(m => m.addTo(map).setStyle({color:l.defaultColor}));
     } else {
       map.removeLayer(l);
