@@ -69,6 +69,11 @@ def map_ui():
     return FileResponse(os.path.join("static", "map.html"))
 
 
+@app.get("/traceroutes")
+def traceroutes_ui():
+    return FileResponse(os.path.join("static", "traceroutes.html"))
+
+
 @app.get("/api/nodes")
 def api_nodes():
     with DB_LOCK:
