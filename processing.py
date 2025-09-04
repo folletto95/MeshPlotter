@@ -461,20 +461,50 @@ def _store_metrics(node_id: str, now_s: int, data: Dict[str, Any]) -> None:
 
 def _store_traceroute(node_id: str, now_s: int, data: Dict[str, Any]) -> None:
     """Persist traceroute information if present in the message."""
-
     decoded = data.get("decoded") if isinstance(data.get("decoded"), dict) else None
-    if not (decoded and decoded.get("portnum") == "TRACEROUTE_APP"):
+    payload: Optional[Dict[str, Any]] = None
+
+    if decoded:
+        portnum = decoded.get("portnum")
+        if isinstance(portnum, int):
+            if portnum != 70:  # TRACEROUTE_APP
+                return
+        elif portnum != "TRACEROUTE_APP":
+            return
+        payload = decoded.get("payload") if isinstance(decoded.get("payload"), dict) else {}
+
+    if payload is None:
+        cand = data.get("payload") if isinstance(data.get("payload"), dict) else data
+        if not isinstance(cand.get("route"), list):
+            return
+        payload = cand
+
+    route_vals = payload.get("route") or []
+    route_hex = [r for r in (_norm_node_id(v) for v in route_vals) if r]
+    if len(route_hex) < 2:
         return
-    payload = decoded.get("payload") or {}
-    route_nums = payload.get("route") or []
-    route_hex = [format(int(n), "x") for n in route_nums]
-    src = _norm_node_id(data.get("from")) or node_id
-    dest = _norm_node_id(data.get("to"))
-    hop_count = max(len(route_hex) - 1, 0)
+
+    src = _norm_node_id(payload.get("from") or data.get("from")) or node_id
+    dest = _norm_node_id(payload.get("to") or data.get("to"))
+    hop_count = (
+        payload.get("hop_count")
+        or payload.get("hopCount")
+        or max(len(route_hex) - 1, 0)
+    )
+
+    radio_info: Dict[str, Any] = {}
+    for k in ("snr", "SNR", "rssi", "RSSI"):
+        if k in payload:
+            radio_info[k.lower()] = payload[k]
+    if isinstance(payload.get("radio"), dict):
+        for k, v in payload["radio"].items():
+            radio_info[str(k)] = v
+    radio_json = json.dumps(radio_info) if radio_info else None
+
     with DB_LOCK:
         DB.execute(
-            "INSERT INTO traceroutes(ts, src_id, dest_id, route, hop_count) VALUES(?,?,?,?,?)",
-            (now_s, src, dest, json.dumps(route_hex), hop_count),
+            "INSERT INTO traceroutes(ts, src_id, dest_id, route, hop_count, radio) VALUES(?,?,?,?,?,?)",
+            (now_s, src, dest, json.dumps(route_hex), hop_count, radio_json),
         )
         DB.commit()
         

@@ -15,10 +15,12 @@ The application should decode both and store the metrics in the database.
 import importlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
 
+import pytest
 from paho.mqtt.client import Client as MQTTClient
 from meshtastic import telemetry_pb2
 
@@ -28,6 +30,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 import app  # noqa: E402
 importlib.reload(app)
+
+
+if shutil.which('mosquitto') is None:  # pragma: no cover - environment dependent
+    pytest.skip("mosquitto executable not found", allow_module_level=True)
 
 
 def reset_db():
