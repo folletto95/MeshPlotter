@@ -27,3 +27,14 @@ def test_admin_can_view_and_edit_nodes():
     with api.DB_LOCK:
         cur = api.DB.execute('SELECT short_name FROM nodes WHERE node_id=?', ('n1',))
         assert cur.fetchone()[0] == 'new'
+
+
+def test_admin_can_delete_nodes():
+    reset_nodes()
+    with api.DB_LOCK:
+        api.DB.execute('INSERT INTO nodes(node_id, short_name) VALUES(?, ?)', ('n1', 'old'))
+        api.DB.commit()
+    api.api_admin_delete_node('n1')
+    with api.DB_LOCK:
+        cur = api.DB.execute('SELECT COUNT(*) FROM nodes WHERE node_id=?', ('n1',))
+        assert cur.fetchone()[0] == 0

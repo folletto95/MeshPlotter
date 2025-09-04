@@ -126,11 +126,16 @@ def api_traceroutes(limit: int = Query(default=100, ge=1, le=1000)):
         )
         rows = cur.fetchall()
     out = []
+    seen = set()
     for ts, src, dest, route_json, hop, radio_json in rows:
         try:
             route = json.loads(route_json) if route_json else []
         except Exception:
             route = []
+        key = (src, dest, tuple(route))
+        if key in seen:
+            continue
+        seen.add(key)
         try:
             radio = json.loads(radio_json) if radio_json else None
         except Exception:
@@ -162,6 +167,30 @@ def api_admin_update_node(node_id: str, payload: Dict[str, Any] = Body(...)):
     params = list(updates.values()) + [node_id]
     with DB_LOCK:
         DB.execute(f"UPDATE nodes SET {set_clause} WHERE node_id=?", params)
+        DB.commit()
+    return JSONResponse({"status": "ok"})
+
+
+@app.delete("/api/admin/nodes/{node_id}")
+def api_admin_delete_node(node_id: str):
+    with DB_LOCK:
+        DB.execute("DELETE FROM nodes WHERE node_id=?", (node_id,))
+        DB.commit()
+    return JSONResponse({"status": "ok"})
+
+
+@app.post("/api/admin/sql")
+def api_admin_sql(payload: Dict[str, Any] = Body(...)):
+    query = payload.get("query")
+    params = payload.get("params") or []
+    if not query:
+        return JSONResponse({"error": "query required"}, status_code=400)
+    with DB_LOCK:
+        cur = DB.execute(query, params)
+        if query.strip().lower().startswith("select"):
+            cols = [c[0] for c in cur.description]
+            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+            return JSONResponse({"rows": rows})
         DB.commit()
     return JSONResponse({"status": "ok"})
 
