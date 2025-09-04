@@ -29,21 +29,37 @@ async function loadTraceroutes(){
     h.textContent = `${nameOf(src)} (${src})`;
     sec.appendChild(h);
     const table = document.createElement('table');
+    const maxHops = Math.max(...list.map(r => r.route.length));
     const thead = document.createElement('thead');
-    thead.innerHTML = '<tr><th>Destinazione</th><th>Hop</th><th>Percorso</th></tr>';
+    const headerRow = document.createElement('tr');
+    headerRow.innerHTML = '<th>Destinazione</th><th>Hop</th>';
+    for (let i = 1; i <= maxHops; i++){
+      const th = document.createElement('th');
+      th.textContent = i;
+      headerRow.appendChild(th);
+    }
+    thead.appendChild(headerRow);
     table.appendChild(thead);
     const tbody = document.createElement('tbody');
     for (const r of list){
       const tr = document.createElement('tr');
+
       const destCell = document.createElement('td');
       destCell.textContent = `${nameOf(r.dest_id)} (${r.dest_id})`;
+
+      const destName = nameOf(r.dest_id);
+      const destCell = document.createElement('td');
+      destCell.textContent = `${destName} (${r.dest_id})`;
+
       tr.appendChild(destCell);
       const hopCell = document.createElement('td');
       hopCell.textContent = r.hop_count;
       tr.appendChild(hopCell);
+
       const pathCell = document.createElement('td');
       pathCell.textContent = r.route.map(id => nameOf(id)).join(' → ');
       tr.appendChild(pathCell);
+
       tbody.appendChild(tr);
     }
     table.appendChild(tbody);
