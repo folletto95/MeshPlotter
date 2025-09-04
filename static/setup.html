@@ -1,7 +1,6 @@
 <!doctype html>
 <html lang="it"><head>
-<meta charset="utf-8"/>
-<title>Traceroutes</title>
+<meta charset="utf-8"/><title>Setup</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg"/>
 <style>
@@ -28,23 +27,38 @@ header{
   box-shadow:0 1px 2px rgba(0,0,0,0.5);
 }
 header a{color:var(--accent);text-decoration:none}
-section{margin:16px}
-section h3{margin:16px 0 8px}
-table{width:100%;border-collapse:collapse;table-layout:fixed}
-th,td{padding:4px 8px;border-bottom:1px solid var(--bd);text-align:left}
-th:first-child,td:first-child{width:40ch}
-th:nth-child(2),td:nth-child(2){text-align:right;width:4ch}
-th:nth-child(3),td:nth-child(3){font-family:monospace;white-space:nowrap}
+section{
+  margin:16px;
+}
+select,button{
+  padding:6px;
+  border:1px solid var(--bd);
+  border-radius:6px;
+  background:var(--card-bg);
+  color:var(--text);
+}
+button{
+  background:var(--accent);
+  color:#fff;
+  border:none;
+  cursor:pointer;
+}
+button:hover{background:#e05500}
 </style>
-
 </head>
 <body>
 <header>
-  <h2 style="margin:0">Traceroutes</h2>
+  <h2 style="margin:0">Setup</h2>
   <a href="/" style="margin-left:auto">Telemetria</a>
   <a href="/map">Mappa</a>
-  <a href="/setup">Setup</a>
+  <a href="/traceroutes">Traceroute</a>
 </header>
-<div id="routes"></div>
-<script src="/static/traceroutes.js"></script>
+<section>
+  <label>
+    Nodo centro mappa<br/>
+    <select id="centerNode" style="min-width:260px"></select>
+  </label>
+  <button id="save" style="margin-left:8px">Salva</button>
+</section>
+<script src="/static/setup.js"></script>
 </body></html>
