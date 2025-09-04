@@ -201,8 +201,6 @@ def api_admin_delete_empty_nodes():
               AND lat IS NULL
               AND lon IS NULL
               AND alt IS NULL
-              AND (last_seen IS NULL OR last_seen = 0)
-              AND (info_packets IS NULL OR info_packets = 0)
             """
         )
         DB.commit()
