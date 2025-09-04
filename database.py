@@ -39,7 +39,6 @@ def migrate() -> None:
               node_id TEXT PRIMARY KEY,
               short_name TEXT,
               long_name TEXT,
-              nickname TEXT,
               last_seen INTEGER,
               info_packets INTEGER DEFAULT 0,
               lat REAL,
@@ -70,8 +69,6 @@ def migrate() -> None:
             DB.execute("ALTER TABLE nodes ADD COLUMN short_name TEXT")
         if "long_name" not in ncols:
             DB.execute("ALTER TABLE nodes ADD COLUMN long_name TEXT")
-        if "nickname" not in ncols:
-            DB.execute("ALTER TABLE nodes ADD COLUMN nickname TEXT")
         if "last_seen" not in ncols:
             DB.execute("ALTER TABLE nodes ADD COLUMN last_seen INTEGER")
         if "info_packets" not in ncols:
@@ -114,7 +111,7 @@ def migrate() -> None:
         DB.execute("CREATE INDEX IF NOT EXISTS idx_telem_ts ON telemetry(ts)")
         DB.execute("CREATE INDEX IF NOT EXISTS idx_telem_nodeid ON telemetry(node_id)")
         DB.execute("CREATE INDEX IF NOT EXISTS idx_telem_metric ON telemetry(metric)")
-        DB.execute("CREATE INDEX IF NOT EXISTS idx_nodes_name ON nodes(COALESCE(nickname, long_name, short_name))")
+        DB.execute("CREATE INDEX IF NOT EXISTS idx_nodes_name ON nodes(COALESCE(long_name, short_name))")
         DB.execute("CREATE INDEX IF NOT EXISTS idx_traceroutes_ts ON traceroutes(ts)")
         DB.execute("CREATE INDEX IF NOT EXISTS idx_messages_ts ON messages(ts)")
         DB.commit()
@@ -141,8 +138,8 @@ def upsert_node(
     with DB_LOCK:
         DB.execute(
             """
-          INSERT INTO nodes(node_id, short_name, long_name, nickname, last_seen, info_packets, lat, lon, alt)
-          VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO nodes(node_id, short_name, long_name, last_seen, info_packets, lat, lon, alt)
+          VALUES(?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(node_id) DO UPDATE SET
             short_name = COALESCE(excluded.short_name, nodes.short_name),
             long_name  = COALESCE(excluded.long_name, nodes.long_name),
@@ -153,7 +150,7 @@ def upsert_node(
             lon = COALESCE(excluded.lon, nodes.lon),
             alt = COALESCE(excluded.alt, nodes.alt)
         """,
-            (node_id, short_name, long_name, None, ts, inc, lat, lon, alt),
+            (node_id, short_name, long_name, ts, inc, lat, lon, alt),
         )
         name_to_set = long_name or short_name
         if node_id and name_to_set:
