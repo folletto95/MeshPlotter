@@ -9,6 +9,7 @@ table{border-collapse:collapse;width:100%;margin-top:16px}
 th,td{border:1px solid #334155;padding:4px}
 input{width:100%;background:#1e293b;color:#f8fafc;border:1px solid #334155;border-radius:4px;padding:4px}
 button{padding:4px 8px;background:#ff6d00;color:#fff;border:none;border-radius:4px;cursor:pointer}
+button.delete{background:#dc2626}
 </style>
 </head><body>
 <h2>Nodes Admin</h2>
@@ -31,8 +32,8 @@ async function load(){
       <td><input type="number" step="any" value="${n.lat??''}"></td>
       <td><input type="number" step="any" value="${n.lon??''}"></td>
       <td><input type="number" step="any" value="${n.alt??''}"></td>
-      <td><button>Save</button></td>`;
-    tr.querySelector('button').addEventListener('click',async()=>{
+      <td><button class="save">Save</button> <button class="delete">Delete</button></td>`;
+    tr.querySelector('button.save').addEventListener('click',async()=>{
       const payload={
         short_name:tr.children[1].firstChild.value,
         long_name:tr.children[2].firstChild.value,
@@ -42,6 +43,11 @@ async function load(){
         alt:parseFloat(tr.children[6].firstChild.value)||null,
       };
       await fetch(`/api/admin/nodes/${n.node_id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    });
+    tr.querySelector('button.delete').addEventListener('click',async()=>{
+      if(!confirm('Delete this node?')) return;
+      await fetch(`/api/admin/nodes/${n.node_id}`,{method:'DELETE'});
+      tr.remove();
     });
     tbody.appendChild(tr);
   });
