@@ -40,7 +40,7 @@ async function loadNodes(){
           if (mk) mk.marker.setLatLng(pos);
         }
       }else{
-        const name = n.nickname || n.long_name || n.short_name || n.node_id;
+        const name = n.long_name || n.short_name || n.node_id;
         const icon = L.divIcon({className:'node-label', html:showNames && n.short_name ? n.short_name : '', iconSize:[24,24]});
         const m = L.marker(pos,{icon}).addTo(map);
         const last = n.last_seen ? new Date(n.last_seen*1000).toLocaleString() : '';
