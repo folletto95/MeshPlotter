@@ -53,6 +53,7 @@ def test_process_json_camelcase_env():
     assert rows == [('humidity', 40.5), ('pressure', 1001.1)]
 
 
+
 def test_process_json_snakecase_pressure():
     """Extract barometric_pressure fields per telemetry docs."""
     reset_db()
@@ -67,7 +68,6 @@ def test_process_json_snakecase_pressure():
     with app.DB_LOCK:
         rows = app.DB.execute('SELECT metric, value FROM telemetry').fetchall()
     assert rows == [('pressure', 999.9)]
-
 
 def test_nodeinfo_pressure_extraction():
     """Extract pressure metric from full NodeInfo messages."""
