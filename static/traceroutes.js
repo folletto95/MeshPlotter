@@ -43,22 +43,22 @@ async function loadTraceroutes(){
     const tbody = document.createElement('tbody');
     for (const r of list){
       const tr = document.createElement('tr');
-
-      const destCell = document.createElement('td');
-      destCell.textContent = `${nameOf(r.dest_id)} (${r.dest_id})`;
-
       const destName = nameOf(r.dest_id);
       const destCell = document.createElement('td');
       destCell.textContent = `${destName} (${r.dest_id})`;
-
       tr.appendChild(destCell);
+
       const hopCell = document.createElement('td');
       hopCell.textContent = r.hop_count;
       tr.appendChild(hopCell);
 
-      const pathCell = document.createElement('td');
-      pathCell.textContent = r.route.map(id => nameOf(id)).join(' → ');
-      tr.appendChild(pathCell);
+      for (let i = 0; i < maxHops; i++){
+        const stepCell = document.createElement('td');
+        if (i < r.route.length){
+          stepCell.textContent = nameOf(r.route[i]);
+        }
+        tr.appendChild(stepCell);
+      }
 
       tbody.appendChild(tr);
     }
