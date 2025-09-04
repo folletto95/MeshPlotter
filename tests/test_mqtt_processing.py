@@ -36,6 +36,31 @@ def test_process_json_message():
     assert rows == [('abcd', 'temperature', 23.5)]
 
 
+def test_process_power_metrics_channels():
+    reset_db()
+    msg = {
+        'power_metrics': {
+            'ch1_voltage': 1.1,
+            'ch2_voltage': 2.2,
+            'ch3_voltage': 3.3,
+            'ch1_current': 10.0,
+            'ch2_current': 20.0,
+            'ch3_current': 30.0,
+        },
+        'user': {'id': 'abcd'}
+    }
+    payload = json.dumps(msg).encode()
+    app.process_mqtt_message('msh/test', payload)
+    with app.DB_LOCK:
+        rows = sorted(app.DB.execute('SELECT metric, value FROM telemetry').fetchall())
+    assert ('ch1_voltage', 1.1) in rows
+    assert ('ch2_voltage', 2.2) in rows
+    assert ('ch3_voltage', 3.3) in rows
+    assert ('ch1_current', 10.0) in rows
+    assert ('ch2_current', 20.0) in rows
+    assert ('ch3_current', 30.0) in rows
+
+
 def test_process_json_camelcase_env():
     """Support camelCase environmentMetrics keys for humidity/pressure."""
     reset_db()
@@ -208,20 +233,24 @@ def test_process_traceroute_json():
         'from': 'ff01',
         'to': 'a1b2',
         'route': ['ff01', 'a1b2'],
+
         'snr': 7.5,
         'rssi': -120,
+
     }
     payload = json.dumps(msg).encode()
     app.process_mqtt_message('msh/ff01/traceroute', payload)
     with app.DB_LOCK:
         row = app.DB.execute(
+
             'SELECT src_id, dest_id, hop_count, route, radio FROM traceroutes'
+
         ).fetchone()
     assert row[0] == 'ff01'
     assert row[1] == 'a1b2'
     assert row[2] == 1
     assert json.loads(row[3]) == ['ff01', 'a1b2']
+
     radio = json.loads(row[4])
     assert radio['snr'] == 7.5
     assert radio['rssi'] == -120
-

@@ -114,7 +114,9 @@ def api_nodes():
 def api_traceroutes(limit: int = Query(default=100, ge=1, le=1000)):
     with DB_LOCK:
         cur = DB.execute(
+
             "SELECT ts, src_id, dest_id, route, hop_count, radio FROM traceroutes ORDER BY id DESC LIMIT ?",
+
             (limit,),
         )
         rows = cur.fetchall()

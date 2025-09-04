@@ -9,6 +9,7 @@ let routesVisible = true;
 let showNames = false;
 const hopColors = ['#00ff00','#7fff00','#bfff00','#ffff00','#ffbf00','#ff8000','#ff4000','#ff0000'];
 
+
 function haversine(lat1, lon1, lat2, lon2){
   const R = 6371;
   const toRad = d => d * Math.PI / 180;
@@ -17,6 +18,7 @@ function haversine(lat1, lon1, lat2, lon2){
   const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
+
 
 async function loadNodes(){
   let fetched = [];
@@ -51,6 +53,7 @@ async function loadNodes(){
     }
   }
   nodes = fetched;
+
 }
 
 function clearRoutes(){
@@ -65,6 +68,7 @@ function clearRoutes(){
 
 async function loadTraceroutes(){
   clearRoutes();
+
   let routes = [];
   try{
     // Fetch a large batch so recent traceroutes appear on the map
@@ -73,6 +77,7 @@ async function loadTraceroutes(){
   }catch{
     routes = [];
   }
+
   for (const r of routes){
     // Include src and dest IDs even if the stored route only contains hops
     const ids = [r.src_id, ...(r.route || []), r.dest_id].filter(Boolean);
@@ -87,6 +92,7 @@ async function loadTraceroutes(){
       const color = hopColors[Math.min(r.hop_count, hopColors.length-1)];
       const line = L.polyline(path, {color, weight:2});
       line.bindTooltip(`${r.hop_count} hop${r.hop_count===1?'':'s'}`);
+
       const srcNode = nodes.find(nd => nd.node_id === r.src_id) || {};
       const destNode = nodes.find(nd => nd.node_id === r.dest_id) || {};
       const srcName = srcNode.nickname || srcNode.long_name || srcNode.short_name || r.src_id;
@@ -97,6 +103,7 @@ async function loadTraceroutes(){
       }
       line.info = {srcName, destName, ts:r.ts, distance, radio:r.radio};
       line.on('click', e => {highlightRoute(line); if (focusLine === line) showRouteInfo(line, e.latlng);});
+
       line.nodeIds = ids;
       line.defaultColor = color;
       const markers = path.map(pt => L.circleMarker(pt, {radius:4, color}));
@@ -207,6 +214,7 @@ function init(){
   document.getElementById('showNames').addEventListener('change', e => {
     setNamesVisibility(e.target.checked);
   });
+
 
   addHopLegend();
 }
