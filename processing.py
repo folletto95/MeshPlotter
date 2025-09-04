@@ -503,10 +503,19 @@ def _store_traceroute(node_id: str, now_s: int, data: Dict[str, Any]) -> None:
         or payload.get("hopCount")
         or max(len(route_hex) - 1, 0)
     )
+
+    radio_info: Dict[str, Any] = {}
+    for k in ("snr", "SNR", "rssi", "RSSI"):
+        if k in payload:
+            radio_info[k.lower()] = payload[k]
+    if isinstance(payload.get("radio"), dict):
+        for k, v in payload["radio"].items():
+            radio_info[str(k)] = v
+    radio_json = json.dumps(radio_info) if radio_info else None
     with DB_LOCK:
         DB.execute(
-            "INSERT INTO traceroutes(ts, src_id, dest_id, route, hop_count) VALUES(?,?,?,?,?)",
-            (now_s, src, dest, json.dumps(route_hex), hop_count),
+            "INSERT INTO traceroutes(ts, src_id, dest_id, route, hop_count, radio) VALUES(?,?,?,?,?,?)",
+            (now_s, src, dest, json.dumps(route_hex), hop_count, radio_json),
         )
         DB.commit()
         
