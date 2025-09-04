@@ -152,20 +152,19 @@ async def api_set_nickname(req: Request):
     return JSONResponse({"status": "ok"})
 
 
-@app.post("/api/admin/sql")
-def api_admin_sql(payload: Dict[str, Any] = Body(...)):
-    query = (payload.get("query") or "").strip()
-    params = payload.get("params") or []
-    if not query:
-        return JSONResponse({"error": "query required"}, status_code=400)
+@app.put("/api/admin/nodes/{node_id}")
+def api_admin_update_node(node_id: str, payload: Dict[str, Any] = Body(...)):
+    allowed = ["short_name", "long_name", "nickname", "lat", "lon", "alt"]
+    updates = {k: payload.get(k) for k in allowed if k in payload}
+    if not updates:
+        return JSONResponse({"error": "no fields"}, status_code=400)
+    set_clause = ", ".join(f"{k}=?" for k in updates)
+    params = list(updates.values()) + [node_id]
     with DB_LOCK:
-        cur = DB.execute(query, params)
-        rows: List[Dict[str, Any]] = []
-        if query.lstrip().lower().startswith("select"):
-            cols = [c[0] for c in cur.description]
-            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+        DB.execute(f"UPDATE nodes SET {set_clause} WHERE node_id=?", params)
         DB.commit()
-    return JSONResponse({"rows": rows})
+    return JSONResponse({"status": "ok"})
+
 
 
 def _resolve_ids(names: List[str]) -> List[str]:

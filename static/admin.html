@@ -5,23 +5,47 @@
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg"/>
 <style>
 body{font-family:system-ui,Segoe UI,Roboto,Ubuntu,sans-serif;margin:16px;background:#0f172a;color:#f8fafc}
-textarea{width:100%;height:200px;margin-bottom:8px;background:#1e293b;color:#f8fafc;border:1px solid #334155;border-radius:6px;padding:8px}
-button{padding:8px 12px;background:#ff6d00;color:#fff;border:none;border-radius:6px;cursor:pointer}
-pre{background:#1e293b;color:#f8fafc;padding:8px;border-radius:6px;white-space:pre-wrap}
+table{border-collapse:collapse;width:100%;margin-top:16px}
+th,td{border:1px solid #334155;padding:4px}
+input{width:100%;background:#1e293b;color:#f8fafc;border:1px solid #334155;border-radius:4px;padding:4px}
+button{padding:4px 8px;background:#ff6d00;color:#fff;border:none;border-radius:4px;cursor:pointer}
 </style>
 </head><body>
-<h2>DB Admin</h2>
-<p>Esegui query SQL per modificare il database.</p>
-<textarea id="query" placeholder="SQL"></textarea><br/>
-<button id="run">Esegui</button>
-<pre id="out"></pre>
+<h2>Nodes Admin</h2>
+<table>
+  <thead><tr><th>ID</th><th>Short</th><th>Long</th><th>Nickname</th><th>Lat</th><th>Lon</th><th>Alt</th><th></th></tr></thead>
+  <tbody id="nodes-body"></tbody>
+</table>
 <script>
-const run=document.getElementById('run');
-run.addEventListener('click',async()=>{
-  const q=document.getElementById('query').value;
-  const res=await fetch('/api/admin/sql',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q})});
+async function load(){
+  const res=await fetch('/api/nodes');
   const data=await res.json();
-  document.getElementById('out').textContent=JSON.stringify(data,null,2);
-});
+  const tbody=document.getElementById('nodes-body');
+  data.forEach(n=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td>${n.node_id}</td>
+      <td><input value="${n.short_name||''}"></td>
+      <td><input value="${n.long_name||''}"></td>
+      <td><input value="${n.nickname||''}"></td>
+      <td><input type="number" step="any" value="${n.lat??''}"></td>
+      <td><input type="number" step="any" value="${n.lon??''}"></td>
+      <td><input type="number" step="any" value="${n.alt??''}"></td>
+      <td><button>Save</button></td>`;
+    tr.querySelector('button').addEventListener('click',async()=>{
+      const payload={
+        short_name:tr.children[1].firstChild.value,
+        long_name:tr.children[2].firstChild.value,
+        nickname:tr.children[3].firstChild.value,
+        lat:parseFloat(tr.children[4].firstChild.value)||null,
+        lon:parseFloat(tr.children[5].firstChild.value)||null,
+        alt:parseFloat(tr.children[6].firstChild.value)||null,
+      };
+      await fetch(`/api/admin/nodes/${n.node_id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    });
+    tbody.appendChild(tr);
+  });
+}
+document.addEventListener('DOMContentLoaded',load);
 </script>
 </body></html>
