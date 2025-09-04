@@ -27,11 +27,14 @@ async function loadNodes(){
 }
 
 async function loadTraceroutes(){
-  const res = await fetch('/api/traceroutes');
+  // Fetch a large batch so recent traceroutes appear on the map
+  const res = await fetch('/api/traceroutes?limit=1000');
   const routes = await res.json();
   for (const r of routes){
+    // Include src and dest IDs even if the stored route only contains hops
+    const ids = [r.src_id, ...(r.route || []), r.dest_id].filter(Boolean);
     const path = [];
-    for (const id of r.route){
+    for (const id of ids){
       const n = nodes.find(nd => nd.node_id === id);
       if (n && n.lat != null && n.lon != null){
         path.push([n.lat, n.lon]);
