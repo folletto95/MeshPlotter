@@ -3,9 +3,9 @@ import os
 import sqlite3
 import time
 from contextlib import asynccontextmanager
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import FastAPI, Query, Request
+from fastapi import Body, FastAPI, Query, Request
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 try:
@@ -72,6 +72,11 @@ def map_ui():
 @app.get("/traceroutes")
 def traceroutes_ui():
     return FileResponse(os.path.join("static", "traceroutes.html"))
+
+
+@app.get("/admin")
+def admin_ui():
+    return FileResponse(os.path.join("static", "admin.html"))
 
 
 @app.get("/api/nodes")
@@ -145,6 +150,22 @@ async def api_set_nickname(req: Request):
         DB.execute("UPDATE nodes SET nickname=? WHERE node_id=?", (nickname, node_id))
         DB.commit()
     return JSONResponse({"status": "ok"})
+
+
+@app.post("/api/admin/sql")
+def api_admin_sql(payload: Dict[str, Any] = Body(...)):
+    query = (payload.get("query") or "").strip()
+    params = payload.get("params") or []
+    if not query:
+        return JSONResponse({"error": "query required"}, status_code=400)
+    with DB_LOCK:
+        cur = DB.execute(query, params)
+        rows: List[Dict[str, Any]] = []
+        if query.lstrip().lower().startswith("select"):
+            cols = [c[0] for c in cur.description]
+            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+        DB.commit()
+    return JSONResponse({"rows": rows})
 
 
 def _resolve_ids(names: List[str]) -> List[str]:
