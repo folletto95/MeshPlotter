@@ -30,11 +30,11 @@ header{
 header a{color:var(--accent);text-decoration:none}
 section{margin:16px}
 section h3{margin:16px 0 8px}
-table{width:100%;border-collapse:collapse}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
 th,td{padding:4px 8px;border-bottom:1px solid var(--bd);text-align:left}
-
-th:nth-child(2),td:nth-child(2){text-align:right;width:3ch}
-th:nth-child(n+3),td:nth-child(n+3){font-family:monospace;white-space:nowrap}
+th:first-child,td:first-child{width:40ch}
+th:nth-child(2),td:nth-child(2){text-align:right;width:4ch}
+th:nth-child(3),td:nth-child(3){font-family:monospace;white-space:nowrap}
 </style>
 
 </head>
