@@ -12,4 +12,3 @@ All MQTT packets, including text messages, waypoints and other application types
 4. Visit `http://localhost:8080` to view the dashboard.
 5. Visit `http://localhost:8080/map` to see nodes and traceroute links on a map. Use the "Collegamenti" checkbox to hide or show the orange route lines.
 6. Visit `http://localhost:8080/traceroutes` for a per-node traceroute summary.
-

@@ -36,6 +36,31 @@ def test_process_json_message():
     assert rows == [('abcd', 'temperature', 23.5)]
 
 
+def test_process_power_metrics_channels():
+    reset_db()
+    msg = {
+        'power_metrics': {
+            'ch1_voltage': 1.1,
+            'ch2_voltage': 2.2,
+            'ch3_voltage': 3.3,
+            'ch1_current': 10.0,
+            'ch2_current': 20.0,
+            'ch3_current': 30.0,
+        },
+        'user': {'id': 'abcd'}
+    }
+    payload = json.dumps(msg).encode()
+    app.process_mqtt_message('msh/test', payload)
+    with app.DB_LOCK:
+        rows = sorted(app.DB.execute('SELECT metric, value FROM telemetry').fetchall())
+    assert ('ch1_voltage', 1.1) in rows
+    assert ('ch2_voltage', 2.2) in rows
+    assert ('ch3_voltage', 3.3) in rows
+    assert ('ch1_current', 10.0) in rows
+    assert ('ch2_current', 20.0) in rows
+    assert ('ch3_current', 30.0) in rows
+
+
 def test_process_json_camelcase_env():
     """Support camelCase environmentMetrics keys for humidity/pressure."""
     reset_db()
