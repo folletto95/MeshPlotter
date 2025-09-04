@@ -51,7 +51,7 @@ async function loadNodes(){
     }
   }
   nodes = fetched;
-}
+
 
 function clearRoutes(){
   routeLines.forEach(l => {
@@ -73,6 +73,7 @@ async function loadTraceroutes(){
   }catch{
     routes = [];
   }
+
   for (const r of routes){
     // Include src and dest IDs even if the stored route only contains hops
     const ids = [r.src_id, ...(r.route || []), r.dest_id].filter(Boolean);
@@ -87,6 +88,7 @@ async function loadTraceroutes(){
       const color = hopColors[Math.min(r.hop_count, hopColors.length-1)];
       const line = L.polyline(path, {color, weight:2});
       line.bindTooltip(`${r.hop_count} hop${r.hop_count===1?'':'s'}`);
+
       const srcNode = nodes.find(nd => nd.node_id === r.src_id) || {};
       const destNode = nodes.find(nd => nd.node_id === r.dest_id) || {};
       const srcName = srcNode.nickname || srcNode.long_name || srcNode.short_name || r.src_id;
@@ -97,6 +99,7 @@ async function loadTraceroutes(){
       }
       line.info = {srcName, destName, ts:r.ts, distance, radio:r.radio};
       line.on('click', e => {highlightRoute(line); if (focusLine === line) showRouteInfo(line, e.latlng);});
+
       line.nodeIds = ids;
       line.defaultColor = color;
       const markers = path.map(pt => L.circleMarker(pt, {radius:4, color}));
@@ -135,6 +138,7 @@ function highlightRoute(line){
   }
 }
 
+
 function showRouteInfo(line, latlng){
   const info = line.info || {};
   const time = info.ts ? new Date(info.ts*1000).toLocaleString() : '';
@@ -146,6 +150,7 @@ function showRouteInfo(line, latlng){
   const html = `<b>${info.srcName||''}</b> → <b>${info.destName||''}</b><br/>${time}<br/>Distanza: ${dist}<br/>${radio}`;
   L.popup().setLatLng(latlng).setContent(html).openOn(map);
 }
+
 
 function setRoutesVisibility(vis){
   routesVisible = vis;
@@ -221,3 +226,4 @@ window.addEventListener('DOMContentLoaded', () => {
   refresh();
   setInterval(refresh, 10000);
 });
+
