@@ -48,6 +48,18 @@ def test_admin_can_prune_empty_nodes():
 
         api.DB.execute('INSERT INTO nodes(node_id, last_seen, info_packets) VALUES(?, ?, ?)', ('n3', 123, 4))
         api.DB.commit()
+    from starlette.routing import Match
+
+    def first_match(path: str) -> str:
+        scope = {'type': 'http', 'path': path, 'method': 'DELETE'}
+        for r in api.app.router.routes:
+            if hasattr(r, 'path'):
+                m, _ = r.matches(scope)
+                if m == Match.FULL:
+                    return r.path
+        return ''
+
+    assert first_match('/api/admin/nodes/empty') == '/api/admin/nodes/empty'
     res = api.api_admin_delete_empty_nodes()
     data = json.loads(res.body)
     assert data['deleted'] == 2
@@ -59,4 +71,3 @@ def test_admin_can_prune_empty_nodes():
         assert cur.fetchone()[0] == 0
         cur = api.DB.execute('SELECT COUNT(*) FROM nodes WHERE node_id=?', ('n3',))
         assert cur.fetchone()[0] == 0
-

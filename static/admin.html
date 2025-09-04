@@ -57,7 +57,9 @@ async function load(){
 document.addEventListener('DOMContentLoaded',load);
 document.getElementById('delete-empty').addEventListener('click',async()=>{
   if(!confirm('Delete nodes without info?')) return;
-  await fetch('/api/admin/nodes/empty',{method:'DELETE'});
+  const res=await fetch('/api/admin/nodes/empty',{method:'DELETE'});
+  const info=await res.json();
+  alert(`Deleted ${info.deleted} nodes`);
   await load();
 });
 </script>
