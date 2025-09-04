@@ -9,6 +9,7 @@ let routesVisible = true;
 let showNames = false;
 const hopColors = ['#00ff00','#7fff00','#bfff00','#ffff00','#ffbf00','#ff8000','#ff4000','#ff0000'];
 let centerNodeId = localStorage.getItem('centerNodeId');
+let nodeRouteFilter = null;
 
 
 function haversine(lat1, lon1, lat2, lon2){
@@ -53,7 +54,7 @@ async function loadNodes(){
         const m = L.marker(pos,{icon}).addTo(map);
         const last = n.last_seen ? new Date(n.last_seen*1000).toLocaleString() : '';
         const alt = n.alt != null ? `<br/>Alt: ${n.alt} m` : '';
-        m.bindPopup(`<b>${name}</b><br/>ID: ${n.node_id}<br/>Ultimo: ${last}${alt}`);
+        m.bindPopup(`<b>${name}</b><br/>ID: ${n.node_id}<br/>Ultimo: ${last}${alt}<br/><button onclick="viewNodeRoutes('${n.node_id}')">Visualizza tracce nodo</button>`);
         nodeMarkers.set(n.node_id,{marker:m,short:n.short_name||''});
         if (first && !centerNodeId){ map.setView(pos,13); first=false; }
       }
@@ -89,16 +90,24 @@ async function loadTraceroutes(){
   }catch{
     routes = [];
   }
+  if (nodeRouteFilter){
+    routes = routes.filter(r => {
+      const ids = [r.src_id, ...(r.route || []), r.dest_id].filter(Boolean);
+      return ids.includes(nodeRouteFilter);
+    });
+  }
 
   for (const r of routes){
     // Include src and dest IDs even if the stored route only contains hops
     const ids = [r.src_id, ...(r.route || []), r.dest_id].filter(Boolean);
     const path = [];
+    const names = [];
     for (const id of ids){
       const n = nodes.find(nd => nd.node_id === id);
       if (n && n.lat != null && n.lon != null){
         path.push([n.lat, n.lon]);
       }
+      names.push(n ? (n.nickname || n.long_name || n.short_name || id) : id);
     }
     if (path.length >= 2){
       const color = hopColors[Math.min(r.hop_count, hopColors.length-1)];
@@ -113,7 +122,17 @@ async function loadTraceroutes(){
       if (srcNode.lat != null && srcNode.lon != null && destNode.lat != null && destNode.lon != null){
         distance = haversine(srcNode.lat, srcNode.lon, destNode.lat, destNode.lon);
       }
-      line.info = {srcName, destName, ts:r.ts, distance, radio:r.radio};
+      const segments = [];
+      for (let i=0;i<ids.length-1;i++){
+        const a = nodes.find(nd => nd.node_id === ids[i]) || {};
+        const b = nodes.find(nd => nd.node_id === ids[i+1]) || {};
+        let dist = null;
+        if (a.lat!=null && a.lon!=null && b.lat!=null && b.lon!=null){
+          dist = haversine(a.lat,a.lon,b.lat,b.lon);
+        }
+        segments.push({from:names[i], to:names[i+1], distance:dist});
+      }
+      line.info = {srcName, destName, ts:r.ts, distance, radio:r.radio, names, segments};
       line.on('click', e => {highlightRoute(line); if (focusLine === line) showRouteInfo(line, e.latlng);});
 
       line.nodeIds = ids;
@@ -162,7 +181,12 @@ function showRouteInfo(line, latlng){
   if (info.radio){
     radio = Object.entries(info.radio).map(([k,v]) => `${k}: ${v}`).join('<br/>');
   }
-  const html = `<b>${info.srcName||''}</b> → <b>${info.destName||''}</b><br/>${time}<br/>Distanza: ${dist}<br/>${radio}`;
+  const pathStr = info.names ? info.names.join(' → ') : '';
+  let segHtml = '';
+  if (info.segments){
+    segHtml = info.segments.map(s => `${s.from} → ${s.to}: ${s.distance != null ? s.distance.toFixed(2)+' km' : 'N/D'}`).join('<br/>');
+  }
+  const html = `<b>${info.srcName||''}</b> → <b>${info.destName||''}</b><br/>${time}<br/>Distanza: ${dist}<br/>${radio}${pathStr?'<br/>'+pathStr:''}${segHtml?'<br/>'+segHtml:''}`;
   L.popup().setLatLng(latlng).setContent(html).openOn(map);
 }
 
@@ -186,6 +210,12 @@ function setNamesVisibility(vis){
     const html = vis ? v.short : '';
     v.marker.setIcon(L.divIcon({className:'node-label', html, iconSize:[24,24]}));
   });
+}
+
+function viewNodeRoutes(nodeId){
+  nodeRouteFilter = nodeRouteFilter === nodeId ? null : nodeId;
+  loadTraceroutes();
+  map.closePopup();
 }
 
 function removeNodeRoutes(nodeId){
