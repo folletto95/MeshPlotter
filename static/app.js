@@ -3,6 +3,9 @@ const $nodes = document.getElementById('nodes');
 const $range = document.getElementById('range');
 const $refresh = document.getElementById('refresh');
 const $autoref = document.getElementById('autoref');
+const $nick = document.getElementById('nick');
+const $saveNick = document.getElementById('save-nick');
+const $showNick = document.getElementById('show-nick');
 
 let nodesMap = {};
 
@@ -94,6 +97,7 @@ try {
 function saveViewSettings(){
   const settings = {
     range: $range.value,
+    showNick: $showNick.checked,
     autoref: $autoref.checked,
     toggles: Object.fromEntries(Object.entries(toggles).map(([fam, el]) => [fam, el.checked])),
     nodes: Array.from($nodes.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value)
@@ -113,6 +117,10 @@ function loadViewSettings(){
     const settings = JSON.parse(raw);
     _hasViewSettings = true;
     if (settings.range) $range.value = settings.range;
+    if ('showNick' in settings){
+      const v = settings.showNick;
+      $showNick.checked = v === true || v === 'true' || v === 1 || v === '1';
+    }
     if (typeof settings.autoref === 'boolean') $autoref.checked = settings.autoref;
     if (settings.toggles){
       for (const [fam, on] of Object.entries(settings.toggles)){
@@ -139,35 +147,38 @@ for (const fam of Object.keys(charts)){
 async function loadNodes(){
   try {
     const res = await fetch('/api/nodes');
-    if (!res.ok) throw new Error('bad response');
     const nodes = await res.json();
-    if (!Array.isArray(nodes)) throw new Error('invalid payload');
     const selected = Array.from($nodes.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
     const preselect = selected.length ? selected : _savedNodes;
     $nodes.innerHTML = '';
     nodesMap = {};
+    const useNick = $showNick.checked;
     for (const n of nodes){
-      const id = n.node_id || n.display_name;
-      if (!id) continue;
-      nodesMap[id] = n;
+      nodesMap[n.node_id] = n;
       const labelEl = document.createElement('label');
       const cb = document.createElement('input');
       cb.type = 'checkbox';
-      cb.value = id;
-      if (preselect.includes(id)) cb.checked = true;
-      cb.onchange = () => { saveViewSettings(); loadData(); };
-      const parts = [];
-      if (n.long_name) parts.push(n.long_name);
-      if (n.short_name && n.short_name !== n.long_name) parts.push(n.short_name);
-      if (!parts.length) parts.push(id);
-      const label = parts.join(' / ');
+      cb.value = n.node_id;
+      if (preselect.includes(n.node_id)) cb.checked = true;
+      cb.onchange = () => { updateNickInput(); saveViewSettings(); loadData(); };
+      let label;
+      if (useNick){
+        label = n.nickname || n.long_name || n.short_name || n.node_id;
+
+      } else {
+        const parts = [];
+        if (n.long_name) parts.push(n.long_name);
+        if (n.short_name && n.short_name !== n.long_name) parts.push(n.short_name);
+        if (!parts.length) parts.push(n.node_id);
+        label = parts.join(' / ');
+      }
       labelEl.appendChild(cb);
-      const infos = n.info_packets ?? 0;
-      labelEl.append(` ${label} (${infos})`);
-      labelEl.title = `${id} — info: ${infos}`;
+      labelEl.append(` ${label} (${n.info_packets})`);
+      labelEl.title = `${n.node_id} — info: ${n.info_packets}`;
       $nodes.appendChild(labelEl);
       $nodes.appendChild(document.createElement('br'));
     }
+    updateNickInput();
     const errEl = document.getElementById('nodes-error');
     if (errEl) errEl.remove();
   } catch (err) {
@@ -183,6 +194,12 @@ async function loadNodes(){
   }
 }
 
+function updateNickInput(){
+  const first = $nodes.querySelector('input[type=checkbox]:checked');
+  const n = first ? nodesMap[first.value] : null;
+  $nick.value = n && n.nickname ? n.nickname : '';
+}
+
 async function loadData(){
   const ids = Array.from($nodes.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
   const names = ids.join(',');
@@ -190,6 +207,7 @@ async function loadData(){
   const url = new URL('/api/metrics', location.origin);
   if (names) url.searchParams.set('nodes', names);
   url.searchParams.set('since_s', since);
+  url.searchParams.set('use_nick', $showNick.checked ? '1' : '0');
   const res = await fetch(url);
   const data = await res.json();
   const series = data.series || {};
@@ -214,7 +232,20 @@ async function loadData(){
 }
 
 $refresh.onclick = () => { loadNodes(); loadData(); };
+$saveNick.onclick = async () => {
+  const first = $nodes.querySelector('input[type=checkbox]:checked');
+  const id = first ? first.value : null;
+  if (!id) return;
+  await fetch('/api/nodes/nickname', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ node_id: id, nickname: $nick.value })
+  });
+  await loadNodes();
+  await loadData();
+};
 $range.onchange = () => { saveViewSettings(); loadData(); };
+$showNick.onchange = () => { saveViewSettings(); loadNodes(); loadData(); };
 $autoref.onchange = () => {
   saveViewSettings();
   clearInterval(window._timer);
