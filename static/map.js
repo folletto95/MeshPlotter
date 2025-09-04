@@ -8,6 +8,7 @@ let focusLine = null;
 let routesVisible = true;
 let showNames = false;
 const hopColors = ['#00ff00','#7fff00','#bfff00','#ffff00','#ffbf00','#ff8000','#ff4000','#ff0000'];
+let centerNodeId = localStorage.getItem('centerNodeId');
 
 
 function haversine(lat1, lon1, lat2, lon2){
@@ -29,6 +30,13 @@ async function loadNodes(){
     return;
   }
   let first = nodes.length === 0;
+  if (first && centerNodeId){
+    const cn = fetched.find(n => n.node_id === centerNodeId && n.lat != null && n.lon != null);
+    if (cn){
+      map.setView([cn.lat, cn.lon],13);
+      first = false;
+    }
+  }
   for (const n of fetched){
     if (n.lat != null && n.lon != null){
       const pos = [n.lat, n.lon];
@@ -47,12 +55,16 @@ async function loadNodes(){
         const alt = n.alt != null ? `<br/>Alt: ${n.alt} m` : '';
         m.bindPopup(`<b>${name}</b><br/>ID: ${n.node_id}<br/>Ultimo: ${last}${alt}`);
         nodeMarkers.set(n.node_id,{marker:m,short:n.short_name||''});
-        if (first){ map.setView(pos,13); first=false; }
+        if (first && !centerNodeId){ map.setView(pos,13); first=false; }
       }
       nodePositions.set(n.node_id,pos);
     }
   }
   nodes = fetched;
+  if (centerNodeId){
+    const cn = nodes.find(n => n.node_id === centerNodeId && n.lat != null && n.lon != null);
+    if (cn) map.setView([cn.lat, cn.lon],13);
+  }
 
 }
 
