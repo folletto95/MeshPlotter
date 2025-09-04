@@ -6,6 +6,7 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
 
 let nodes = [];
 const routeLines = [];
+const routeMarkers = new Map();
 let focusLine = null;
 
 async function loadNodes(){
@@ -26,11 +27,14 @@ async function loadNodes(){
 }
 
 async function loadTraceroutes(){
-  const res = await fetch('/api/traceroutes');
+  // Fetch a large batch so recent traceroutes appear on the map
+  const res = await fetch('/api/traceroutes?limit=1000');
   const routes = await res.json();
   for (const r of routes){
+    // Include src and dest IDs even if the stored route only contains hops
+    const ids = [r.src_id, ...(r.route || []), r.dest_id].filter(Boolean);
     const path = [];
-    for (const id of r.route){
+    for (const id of ids){
       const n = nodes.find(nd => nd.node_id === id);
       if (n && n.lat != null && n.lon != null){
         path.push([n.lat, n.lon]);
@@ -38,23 +42,32 @@ async function loadTraceroutes(){
     }
     if (path.length >= 2){
       const line = L.polyline(path, {color:'#ff6d00', weight:2}).addTo(map);
+      const markers = path.map(pt => L.circleMarker(pt, {radius:4, color:'#ff6d00'}).addTo(map));
       line.bindTooltip(`${r.hop_count} hop${r.hop_count===1?'':'s'}`, {permanent:true});
       line.on('click', () => highlightRoute(line));
       routeLines.push(line);
+      routeMarkers.set(line, markers);
     }
   }
 }
 
 function highlightRoute(line){
   if (focusLine === line){
-    routeLines.forEach(l => { if (!map.hasLayer(l)) l.addTo(map).setStyle({color:'#ff6d00', weight:2}); });
+    routeLines.forEach(l => {
+      if (!map.hasLayer(l)){
+        l.addTo(map).setStyle({color:'#ff6d00', weight:2});
+        routeMarkers.get(l).forEach(m => m.addTo(map).setStyle({color:'#ff6d00'}));
+      }
+    });
     focusLine = null;
   } else {
     routeLines.forEach(l => {
       if (l === line){
         l.setStyle({color:'#0ff', weight:4}).bringToFront();
+        routeMarkers.get(l).forEach(m => m.addTo(map).setStyle({color:'#0ff'}).bringToFront());
       } else {
         map.removeLayer(l);
+        routeMarkers.get(l).forEach(m => map.removeLayer(m));
       }
     });
     focusLine = line;
