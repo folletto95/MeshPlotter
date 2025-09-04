@@ -13,6 +13,7 @@ button.delete{background:#dc2626}
 </style>
 </head><body>
 <h2>Nodes Admin</h2>
+<button id="delete-empty">Delete empty nodes</button>
 <table>
   <thead><tr><th>ID</th><th>Short</th><th>Long</th><th>Nickname</th><th>Lat</th><th>Lon</th><th>Alt</th><th></th></tr></thead>
   <tbody id="nodes-body"></tbody>
@@ -22,6 +23,7 @@ async function load(){
   const res=await fetch('/api/nodes');
   const data=await res.json();
   const tbody=document.getElementById('nodes-body');
+  tbody.innerHTML='';
   data.forEach(n=>{
     const tr=document.createElement('tr');
     tr.innerHTML=`
@@ -53,5 +55,12 @@ async function load(){
   });
 }
 document.addEventListener('DOMContentLoaded',load);
+document.getElementById('delete-empty').addEventListener('click',async()=>{
+  if(!confirm('Delete nodes without info?')) return;
+  const res=await fetch('/api/admin/nodes/empty',{method:'DELETE'});
+  const info=await res.json();
+  alert(`Deleted ${info.deleted} nodes`);
+  await load();
+});
 </script>
 </body></html>

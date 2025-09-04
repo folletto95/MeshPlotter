@@ -38,3 +38,34 @@ def test_admin_can_delete_nodes():
     with api.DB_LOCK:
         cur = api.DB.execute('SELECT COUNT(*) FROM nodes WHERE node_id=?', ('n1',))
         assert cur.fetchone()[0] == 0
+
+
+def test_admin_can_prune_empty_nodes():
+    reset_nodes()
+    with api.DB_LOCK:
+        api.DB.execute('INSERT INTO nodes(node_id, short_name) VALUES(?, ?)', ('n1', 'info'))
+        api.DB.execute('INSERT INTO nodes(node_id) VALUES(?)', ('n2',))
+        api.DB.execute('INSERT INTO nodes(node_id, last_seen, info_packets) VALUES(?, ?, ?)', ('n3', 123, 4))
+        api.DB.commit()
+    from starlette.routing import Match
+
+    def first_match(path: str) -> str:
+        scope = {'type': 'http', 'path': path, 'method': 'DELETE'}
+        for r in api.app.router.routes:
+            if hasattr(r, 'path'):
+                m, _ = r.matches(scope)
+                if m == Match.FULL:
+                    return r.path
+        return ''
+
+    assert first_match('/api/admin/nodes/empty') == '/api/admin/nodes/empty'
+    res = api.api_admin_delete_empty_nodes()
+    data = json.loads(res.body)
+    assert data['deleted'] == 2
+    with api.DB_LOCK:
+        cur = api.DB.execute('SELECT COUNT(*) FROM nodes WHERE node_id=?', ('n1',))
+        assert cur.fetchone()[0] == 1
+        cur = api.DB.execute('SELECT COUNT(*) FROM nodes WHERE node_id=?', ('n2',))
+        assert cur.fetchone()[0] == 0
+        cur = api.DB.execute('SELECT COUNT(*) FROM nodes WHERE node_id=?', ('n3',))
+        assert cur.fetchone()[0] == 0
