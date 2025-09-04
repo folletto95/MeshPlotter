@@ -79,6 +79,11 @@ def admin_ui():
     return FileResponse(os.path.join("static", "admin.html"))
 
 
+@app.get("/setup")
+def setup_ui():
+    return FileResponse(os.path.join("static", "setup.html"))
+
+
 @app.get("/api/nodes")
 def api_nodes():
     with DB_LOCK:
@@ -126,7 +131,12 @@ def api_traceroutes(limit: int = Query(default=100, ge=1, le=1000)):
         )
         rows = cur.fetchall()
     out = []
+    seen = set()
     for ts, src, dest, route_json, hop, radio_json in rows:
+        key = (src, dest, route_json or "")
+        if key in seen:
+            continue
+        seen.add(key)
         try:
             route = json.loads(route_json) if route_json else []
         except Exception:
