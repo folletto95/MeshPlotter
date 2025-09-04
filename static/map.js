@@ -53,6 +53,7 @@ async function loadTraceroutes(){
   }catch{
     routes = [];
   }
+
   for (const r of routes){
     // Include src and dest IDs even if the stored route only contains hops
     const ids = [r.src_id, ...(r.route || []), r.dest_id].filter(Boolean);

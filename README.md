@@ -13,3 +13,15 @@ All MQTT packets, including text messages, waypoints and other application types
 5. Visit `http://localhost:8080/map` to see nodes and traceroute links on a map. Use the "Collegamenti" checkbox to hide or show the route lines and "Nomi nodi" to toggle node labels. Link colours range from green (0 hop) to red (7+ hops).
 6. Visit `http://localhost:8080/traceroutes` for a per-node traceroute summary.
 
+## Auto update
+
+If you want the application to periodically pull the latest changes from its
+Git repository while running, set the environment variable
+`AUTO_UPDATE_INTERVAL` to the number of seconds between checks. For example:
+
+```bash
+AUTO_UPDATE_INTERVAL=3600 python app.py
+```
+
+The update process is best effort and logs a warning if fetching or pulling
+fails.
