@@ -1,7 +1,10 @@
 # MeshPlotter
 
-
-MeshPlotter collects telemetry data from Meshtastic MQTT topics, stores them in SQLite and provides a simple web dashboard built with FastAPI and Chart.js. A map view illustrates node positions and their traceroute connections.
+MeshPlotter is a lightweight collector and dashboard for Meshtastic networks.
+It subscribes to one or more MQTT topics, decodes the incoming packets and
+persists the information in a SQLite database.  A built‑in FastAPI application
+exposes the stored data through a JSON API and serves a small web interface
+powered by Chart.js and Leaflet.
 
 ## Features
 
@@ -85,3 +88,4 @@ while running. To enable it:
 
 To disable the auto-update, unset `AUTO_UPDATE_INTERVAL` or provide an empty
 value before starting the server.
+

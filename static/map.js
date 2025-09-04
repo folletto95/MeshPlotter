@@ -9,15 +9,6 @@ let routesVisible = true;
 let showNames = false;
 const hopColors = ['#00ff00','#7fff00','#bfff00','#ffff00','#ffbf00','#ff8000','#ff4000','#ff0000'];
 
-function haversine(lat1, lon1, lat2, lon2){
-  const R = 6371;
-  const toRad = d => d * Math.PI / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 async function loadNodes(){
   let fetched = [];
   try{
@@ -51,20 +42,9 @@ async function loadNodes(){
     }
   }
   nodes = fetched;
-
-
-function clearRoutes(){
-  routeLines.forEach(l => {
-    map.removeLayer(l);
-    routeMarkers.get(l).forEach(m => map.removeLayer(m));
-  });
-  routeLines.length = 0;
-  routeMarkers.clear();
-  focusLine = null;
 }
 
 async function loadTraceroutes(){
-  clearRoutes();
   let routes = [];
   try{
     // Fetch a large batch so recent traceroutes appear on the map
@@ -88,18 +68,7 @@ async function loadTraceroutes(){
       const color = hopColors[Math.min(r.hop_count, hopColors.length-1)];
       const line = L.polyline(path, {color, weight:2});
       line.bindTooltip(`${r.hop_count} hop${r.hop_count===1?'':'s'}`);
-
-      const srcNode = nodes.find(nd => nd.node_id === r.src_id) || {};
-      const destNode = nodes.find(nd => nd.node_id === r.dest_id) || {};
-      const srcName = srcNode.nickname || srcNode.long_name || srcNode.short_name || r.src_id;
-      const destName = destNode.nickname || destNode.long_name || destNode.short_name || r.dest_id;
-      let distance = null;
-      if (srcNode.lat != null && srcNode.lon != null && destNode.lat != null && destNode.lon != null){
-        distance = haversine(srcNode.lat, srcNode.lon, destNode.lat, destNode.lon);
-      }
-      line.info = {srcName, destName, ts:r.ts, distance, radio:r.radio};
-      line.on('click', e => {highlightRoute(line); if (focusLine === line) showRouteInfo(line, e.latlng);});
-
+      line.on('click', () => highlightRoute(line));
       line.nodeIds = ids;
       line.defaultColor = color;
       const markers = path.map(pt => L.circleMarker(pt, {radius:4, color}));
@@ -123,7 +92,6 @@ function highlightRoute(line){
       }
     });
     focusLine = null;
-    map.closePopup();
   } else {
     routeLines.forEach(l => {
       if (l === line){
@@ -137,20 +105,6 @@ function highlightRoute(line){
     focusLine = line;
   }
 }
-
-
-function showRouteInfo(line, latlng){
-  const info = line.info || {};
-  const time = info.ts ? new Date(info.ts*1000).toLocaleString() : '';
-  const dist = info.distance != null ? info.distance.toFixed(2) + ' km' : 'N/D';
-  let radio = 'N/D';
-  if (info.radio){
-    radio = Object.entries(info.radio).map(([k,v]) => `${k}: ${v}`).join('<br/>');
-  }
-  const html = `<b>${info.srcName||''}</b> → <b>${info.destName||''}</b><br/>${time}<br/>Distanza: ${dist}<br/>${radio}`;
-  L.popup().setLatLng(latlng).setContent(html).openOn(map);
-}
-
 
 function setRoutesVisibility(vis){
   routesVisible = vis;
@@ -213,17 +167,9 @@ function init(){
     setNamesVisibility(e.target.checked);
   });
 
+  loadNodes().then(loadTraceroutes);
+  setInterval(loadNodes, 10000);
   addHopLegend();
 }
 
-async function refresh(){
-  await loadNodes();
-  await loadTraceroutes();
-}
-
-window.addEventListener('DOMContentLoaded', () => {
-  init();
-  refresh();
-  setInterval(refresh, 10000);
-});
-
+window.addEventListener('DOMContentLoaded', init);

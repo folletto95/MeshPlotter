@@ -114,21 +114,23 @@ def api_nodes():
 def api_traceroutes(limit: int = Query(default=100, ge=1, le=1000)):
     with DB_LOCK:
         cur = DB.execute(
-            "SELECT ts, src_id, dest_id, route, hop_count, radio FROM traceroutes ORDER BY id DESC LIMIT ?",
+            """
+            SELECT MAX(ts) AS ts, src_id, dest_id, route, hop_count
+            FROM traceroutes
+            GROUP BY src_id, dest_id, route, hop_count
+            ORDER BY ts DESC
+            LIMIT ?
+            """,
             (limit,),
         )
         rows = cur.fetchall()
     out = []
-    for ts, src, dest, route_json, hop, radio_json in rows:
+    for ts, src, dest, route_json, hop in rows:
         try:
             route = json.loads(route_json) if route_json else []
         except Exception:
             route = []
-        try:
-            radio = json.loads(radio_json) if radio_json else None
-        except Exception:
-            radio = None
-        out.append({"ts": ts, "src_id": src, "dest_id": dest, "route": route, "hop_count": hop, "radio": radio})
+        out.append({"ts": ts, "src_id": src, "dest_id": dest, "route": route, "hop_count": hop})
     return JSONResponse(out)
 
 
