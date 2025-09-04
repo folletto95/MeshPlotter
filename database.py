@@ -93,15 +93,10 @@ def migrate() -> None:
               src_id TEXT,
               dest_id TEXT,
               route TEXT,
-              hop_count INTEGER,
-              radio TEXT
+              hop_count INTEGER
             )
             """,
         )
-
-        tcols = [c[1] for c in DB.execute("PRAGMA table_info(traceroutes)").fetchall()]
-        if "radio" not in tcols:
-            DB.execute("ALTER TABLE traceroutes ADD COLUMN radio TEXT")
 
         DB.execute(
             """
