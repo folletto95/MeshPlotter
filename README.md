@@ -1,6 +1,10 @@
 # MeshPlotter
 
-MeshPlotter collects telemetry data from Meshtastic MQTT topics, stores them in SQLite and provides a simple web dashboard built with FastAPI and Chart.js. A map view illustrates node positions and their traceroute connections.
+MeshPlotter is a lightweight collector and dashboard for Meshtastic networks.
+It subscribes to one or more MQTT topics, decodes the incoming packets and
+persists the information in a SQLite database.  A built‑in FastAPI application
+exposes the stored data through a JSON API and serves a small web interface
+powered by Chart.js and Leaflet.
 
 
 ## Features
@@ -41,9 +45,10 @@ environment.  The file controls:
 3. Start the server: `python app.py`
 4. Visit `http://localhost:8080` to view the dashboard.
 5. Visit `http://localhost:8080/map` to see nodes and traceroute links on a
-   map. Use the "Collegamenti" checkbox to hide or show the route lines and
-   "Nomi nodi" to toggle node labels. Link colours range from green (0 hop) to
-   red (7+ hops).
+   map. Use the "Links" ("Collegamenti") checkbox to hide or show the route
+   lines and "Node names" ("Nomi nodi") to toggle node labels. Link colours
+   range from green (0 hop) to red (7+ hops).
+
 6. Visit `http://localhost:8080/traceroutes` for a per‑node traceroute
    summary.
 
@@ -85,3 +90,4 @@ while running. To enable it:
 
 To disable the auto-update, unset `AUTO_UPDATE_INTERVAL` or provide an empty
 value before starting the server.
+
