@@ -226,3 +226,22 @@ def test_store_generic_message():
     assert row[1] == 'TEXT_MESSAGE_APP'
     assert data['decoded']['payload']['text'] == 'hello'
 
+
+def test_process_traceroute_json():
+    reset_db()
+    msg = {
+        'from': 'ff01',
+        'to': 'a1b2',
+        'route': ['ff01', 'a1b2'],
+    }
+    payload = json.dumps(msg).encode()
+    app.process_mqtt_message('msh/ff01/traceroute', payload)
+    with app.DB_LOCK:
+        row = app.DB.execute(
+            'SELECT src_id, dest_id, hop_count, route FROM traceroutes'
+        ).fetchone()
+    assert row[0] == 'ff01'
+    assert row[1] == 'a1b2'
+    assert row[2] == 1
+    assert json.loads(row[3]) == ['ff01', 'a1b2']
+
