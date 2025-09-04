@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="it"><head>
+<meta charset="utf-8"/><title>DB Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg"/>
+<style>
+body{font-family:system-ui,Segoe UI,Roboto,Ubuntu,sans-serif;margin:16px;background:#0f172a;color:#f8fafc}
+table{border-collapse:collapse;width:100%;margin-top:16px}
+th,td{border:1px solid #334155;padding:4px}
+input{width:100%;background:#1e293b;color:#f8fafc;border:1px solid #334155;border-radius:4px;padding:4px}
+button{padding:4px 8px;background:#ff6d00;color:#fff;border:none;border-radius:4px;cursor:pointer}
+</style>
+</head><body>
+<h2>Nodes Admin</h2>
+<table>
+  <thead><tr><th>ID</th><th>Short</th><th>Long</th><th>Nickname</th><th>Lat</th><th>Lon</th><th>Alt</th><th></th></tr></thead>
+  <tbody id="nodes-body"></tbody>
+</table>
+<script>
+async function load(){
+  const res=await fetch('/api/nodes');
+  const data=await res.json();
+  const tbody=document.getElementById('nodes-body');
+  data.forEach(n=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td>${n.node_id}</td>
+      <td><input value="${n.short_name||''}"></td>
+      <td><input value="${n.long_name||''}"></td>
+      <td><input value="${n.nickname||''}"></td>
+      <td><input type="number" step="any" value="${n.lat??''}"></td>
+      <td><input type="number" step="any" value="${n.lon??''}"></td>
+      <td><input type="number" step="any" value="${n.alt??''}"></td>
+      <td><button>Save</button></td>`;
+    tr.querySelector('button').addEventListener('click',async()=>{
+      const payload={
+        short_name:tr.children[1].firstChild.value,
+        long_name:tr.children[2].firstChild.value,
+        nickname:tr.children[3].firstChild.value,
+        lat:parseFloat(tr.children[4].firstChild.value)||null,
+        lon:parseFloat(tr.children[5].firstChild.value)||null,
+        alt:parseFloat(tr.children[6].firstChild.value)||null,
+      };
+      await fetch(`/api/admin/nodes/${n.node_id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    });
+    tbody.appendChild(tr);
+  });
+}
+document.addEventListener('DOMContentLoaded',load);
+</script>
+</body></html>

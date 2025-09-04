@@ -3,9 +3,9 @@ import os
 import sqlite3
 import time
 from contextlib import asynccontextmanager
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import FastAPI, Query, Request
+from fastapi import Body, FastAPI, Query, Request
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 try:
@@ -72,6 +72,11 @@ def map_ui():
 @app.get("/traceroutes")
 def traceroutes_ui():
     return FileResponse(os.path.join("static", "traceroutes.html"))
+
+
+@app.get("/admin")
+def admin_ui():
+    return FileResponse(os.path.join("static", "admin.html"))
 
 
 @app.get("/api/nodes")
@@ -143,6 +148,20 @@ async def api_set_nickname(req: Request):
         return JSONResponse({"error": "node_id required"}, status_code=400)
     with DB_LOCK:
         DB.execute("UPDATE nodes SET nickname=? WHERE node_id=?", (nickname, node_id))
+        DB.commit()
+    return JSONResponse({"status": "ok"})
+
+
+@app.put("/api/admin/nodes/{node_id}")
+def api_admin_update_node(node_id: str, payload: Dict[str, Any] = Body(...)):
+    allowed = ["short_name", "long_name", "nickname", "lat", "lon", "alt"]
+    updates = {k: payload.get(k) for k in allowed if k in payload}
+    if not updates:
+        return JSONResponse({"error": "no fields"}, status_code=400)
+    set_clause = ", ".join(f"{k}=?" for k in updates)
+    params = list(updates.values()) + [node_id]
+    with DB_LOCK:
+        DB.execute(f"UPDATE nodes SET {set_clause} WHERE node_id=?", params)
         DB.commit()
     return JSONResponse({"status": "ok"})
 
