@@ -15,13 +15,30 @@ All MQTT packets, including text messages, waypoints and other application types
 
 ## Auto update
 
-If you want the application to periodically pull the latest changes from its
-Git repository while running, set the environment variable
-`AUTO_UPDATE_INTERVAL` to the number of seconds between checks. For example:
+MeshPlotter can keep itself aligned with the latest code in its Git repository
+while running. To enable it:
 
-```bash
-AUTO_UPDATE_INTERVAL=3600 python app.py
-```
+1. **Define the interval** – set the environment variable
+   `AUTO_UPDATE_INTERVAL` to the number of seconds between update checks. If the
+   variable is unset or contains a non‑numeric value, the feature is disabled.
 
-The update process is best effort and logs a warning if fetching or pulling
-fails.
+   ```bash
+   export AUTO_UPDATE_INTERVAL=3600  # check every hour
+   python app.py
+   ```
+
+2. **Background update thread** – on startup the server spawns a thread that,
+   at each interval:
+   - runs `git fetch` to retrieve remote refs
+   - compares the local and upstream commits (`git rev-parse @` vs
+     `git rev-parse @{u}`)
+   - executes `git pull` when a difference is detected
+
+   Any errors (e.g. network issues or merge conflicts) are logged as warnings
+   and do not stop the application.
+
+3. **Keep a clean work tree** – ensure there are no uncommitted changes to avoid
+   conflicts during the `git pull` operation.
+
+To disable the auto-update, unset `AUTO_UPDATE_INTERVAL` or provide an empty
+value before starting the server.
