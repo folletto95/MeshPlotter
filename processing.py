@@ -239,6 +239,7 @@ _RE_ENV = re.compile(
 )
 _RE_DEV = re.compile(r'(?:^|\.)(device_?metrics)\.(voltage)\b')
 _RE_PWR = re.compile(r'(?:^|\.)(power_?metrics)\.(bus_voltage|shunt_voltage|current|current_ma|current_a)\b')
+_RE_PWR_CH = re.compile(r'(?:^|\.)(ch\d+_(?:voltage|current|current_ma|current_a))\b')
 _RE_GENERIC = re.compile(
     r'(?:^|\.)(temp(?:erature)?|hum(?:idity)?|relativehumidity|'
     r'press(?:ure)?|barometricpressure|volt(?:age)?|current(?:_ma|_a)?)\b',
@@ -274,6 +275,17 @@ def _normalize_metric(k: str, v: float) -> Optional[Tuple[str, float]]:
             return ("current", v)
         if f == "current_ma":
             return ("current", v)
+    m = _RE_PWR_CH.search(k_low)
+    if m:
+        raw = m.group(1)
+        if raw.endswith("_voltage"):
+            return (raw, v)
+        if raw.endswith("_current_ma"):
+            return (raw.replace("_current_ma", "_current"), v)
+        if raw.endswith("_current_a"):
+            return (raw.replace("_current_a", "_current"), v * 1000)
+        if raw.endswith("_current"):
+            return (raw, v)
     if "config." in k_low or "prefs." in k_low:
         return None
     if _RE_GENERIC.search(k_low):
