@@ -45,6 +45,7 @@ def test_admin_can_prune_empty_nodes():
     with api.DB_LOCK:
         api.DB.execute('INSERT INTO nodes(node_id, short_name) VALUES(?, ?)', ('n1', 'info'))
         api.DB.execute('INSERT INTO nodes(node_id) VALUES(?)', ('n2',))
+
         api.DB.execute('INSERT INTO nodes(node_id, last_seen, info_packets) VALUES(?, ?, ?)', ('n3', 123, 4))
         api.DB.commit()
     from starlette.routing import Match
@@ -62,6 +63,7 @@ def test_admin_can_prune_empty_nodes():
     res = api.api_admin_delete_empty_nodes()
     data = json.loads(res.body)
     assert data['deleted'] == 2
+
     with api.DB_LOCK:
         cur = api.DB.execute('SELECT COUNT(*) FROM nodes WHERE node_id=?', ('n1',))
         assert cur.fetchone()[0] == 1

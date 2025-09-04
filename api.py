@@ -208,6 +208,26 @@ def api_admin_delete_node(node_id: str):
     return JSONResponse({"status": "ok"})
 
 
+@app.delete("/api/admin/nodes/empty")
+def api_admin_delete_empty_nodes():
+    with DB_LOCK:
+        before = DB.total_changes
+        DB.execute(
+            """
+            DELETE FROM nodes
+            WHERE short_name IS NULL
+              AND long_name IS NULL
+              AND nickname IS NULL
+              AND lat IS NULL
+              AND lon IS NULL
+              AND alt IS NULL
+            """
+        )
+        DB.commit()
+        deleted = DB.total_changes - before
+    return JSONResponse({"deleted": deleted})
+
+
 @app.post("/api/admin/sql")
 def api_admin_sql(payload: Dict[str, Any] = Body(...)):
     query = payload.get("query")
