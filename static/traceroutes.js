@@ -8,7 +8,7 @@ async function loadNodes(){
   const res = await fetch('/api/nodes');
   const nodes = await res.json();
   for (const n of nodes){
-    const name = n.nickname || n.long_name || n.short_name || n.node_id;
+    const name = n.long_name || n.short_name || n.node_id;
     nodeNames.set(n.node_id, name);
   }
 }
