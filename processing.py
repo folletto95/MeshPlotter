@@ -248,6 +248,11 @@ _RE_GENERIC = re.compile(
 
 def _normalize_metric(k: str, v: float) -> Optional[Tuple[str, float]]:
     k_low = k.lower()
+    # Official telemetry docs define `barometricPressure` in EnvironmentMetrics
+    # (https://meshtastic.org/docs/developers/protobufs/telemetry). Handle it
+    # explicitly even if the prefix is missing.
+    if "barometricpressure" in k_low or "barometric_pressure" in k_low:
+        return ("pressure", v)
     m = _RE_ENV.search(k_low)
     if m:
         f = m.group(2)
@@ -430,10 +435,18 @@ def _store_metrics(node_id: str, now_s: int, data: Dict[str, Any]) -> None:
     """Flatten metrics from a message and store them in the DB."""
 
     candidates: List[Dict[str, Any]] = []
-    if "payload" in data and isinstance(data["payload"], dict):
+    if isinstance(data.get("payload"), dict):
         candidates.append(data["payload"])
-    if any(k in data for k in ("environment_metrics", "device_metrics", "power_metrics")):
-        candidates.append(data)
+    for k in (
+        "environment_metrics",
+        "device_metrics",
+        "power_metrics",
+        "environmentMetrics",
+        "deviceMetrics",
+        "powerMetrics",
+    ):
+        if isinstance(data.get(k), dict):
+            candidates.append(data[k])
     if not candidates:
         candidates.append(data)
 

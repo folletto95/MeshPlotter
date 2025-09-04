@@ -53,6 +53,41 @@ def test_process_json_camelcase_env():
     assert rows == [('humidity', 40.5), ('pressure', 1001.1)]
 
 
+def test_process_json_snakecase_pressure():
+    """Extract barometric_pressure fields per telemetry docs."""
+    reset_db()
+    msg = {
+        'environment_metrics': {
+            'barometric_pressure': 999.9,
+        },
+        'user': {'id': 'abcd'},
+    }
+    payload = json.dumps(msg).encode()
+    app.process_mqtt_message('msh/test', payload)
+    with app.DB_LOCK:
+        rows = app.DB.execute('SELECT metric, value FROM telemetry').fetchall()
+    assert rows == [('pressure', 999.9)]
+
+
+def test_nodeinfo_pressure_extraction():
+    """Extract pressure metric from full NodeInfo messages."""
+    reset_db()
+    msg = {
+        '$typeName': 'meshtastic.NodeInfo',
+        'user': {'id': 'node1'},
+        'environmentMetrics': {
+            'temperature': 25.7,
+            'barometricPressure': 1017.6,
+        },
+        'deviceMetrics': {'batteryLevel': 88},
+    }
+    payload = json.dumps(msg).encode()
+    app.process_mqtt_message('msh/node1/info', payload)
+    with app.DB_LOCK:
+        rows = app.DB.execute('SELECT metric, value FROM telemetry').fetchall()
+    assert ('pressure', 1017.6) in rows
+
+
 def test_process_proto_message():
     reset_db()
     from meshtastic import telemetry_pb2
