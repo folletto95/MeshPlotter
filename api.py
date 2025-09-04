@@ -3,9 +3,9 @@ import os
 import sqlite3
 import time
 from contextlib import asynccontextmanager
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import FastAPI, Query, Request
+from fastapi import Body, FastAPI, Query, Request
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 try:
@@ -74,6 +74,11 @@ def traceroutes_ui():
     return FileResponse(os.path.join("static", "traceroutes.html"))
 
 
+@app.get("/admin")
+def admin_ui():
+    return FileResponse(os.path.join("static", "admin.html"))
+
+
 @app.get("/api/nodes")
 def api_nodes():
     with DB_LOCK:
@@ -114,23 +119,23 @@ def api_nodes():
 def api_traceroutes(limit: int = Query(default=100, ge=1, le=1000)):
     with DB_LOCK:
         cur = DB.execute(
-            """
-            SELECT MAX(ts) AS ts, src_id, dest_id, route, hop_count
-            FROM traceroutes
-            GROUP BY src_id, dest_id, route, hop_count
-            ORDER BY ts DESC
-            LIMIT ?
-            """,
+
+            "SELECT ts, src_id, dest_id, route, hop_count, radio FROM traceroutes ORDER BY id DESC LIMIT ?",
+
             (limit,),
         )
         rows = cur.fetchall()
     out = []
-    for ts, src, dest, route_json, hop in rows:
+    for ts, src, dest, route_json, hop, radio_json in rows:
         try:
             route = json.loads(route_json) if route_json else []
         except Exception:
             route = []
-        out.append({"ts": ts, "src_id": src, "dest_id": dest, "route": route, "hop_count": hop})
+        try:
+            radio = json.loads(radio_json) if radio_json else None
+        except Exception:
+            radio = None
+        out.append({"ts": ts, "src_id": src, "dest_id": dest, "route": route, "hop_count": hop, "radio": radio})
     return JSONResponse(out)
 
 
@@ -145,6 +150,22 @@ async def api_set_nickname(req: Request):
         DB.execute("UPDATE nodes SET nickname=? WHERE node_id=?", (nickname, node_id))
         DB.commit()
     return JSONResponse({"status": "ok"})
+
+
+@app.post("/api/admin/sql")
+def api_admin_sql(payload: Dict[str, Any] = Body(...)):
+    query = (payload.get("query") or "").strip()
+    params = payload.get("params") or []
+    if not query:
+        return JSONResponse({"error": "query required"}, status_code=400)
+    with DB_LOCK:
+        cur = DB.execute(query, params)
+        rows: List[Dict[str, Any]] = []
+        if query.lstrip().lower().startswith("select"):
+            cols = [c[0] for c in cur.description]
+            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+        DB.commit()
+    return JSONResponse({"rows": rows})
 
 
 def _resolve_ids(names: List[str]) -> List[str]:

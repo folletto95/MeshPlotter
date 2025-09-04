@@ -6,6 +6,7 @@ persists the information in a SQLite database.  A built‑in FastAPI application
 exposes the stored data through a JSON API and serves a small web interface
 powered by Chart.js and Leaflet.
 
+
 ## Features
 
 - **MQTT ingestion** – connects to Meshtastic topics and decodes payloads in
@@ -47,6 +48,7 @@ environment.  The file controls:
    map. Use the "Links" ("Collegamenti") checkbox to hide or show the route
    lines and "Node names" ("Nomi nodi") to toggle node labels. Link colours
    range from green (0 hop) to red (7+ hops).
+
 6. Visit `http://localhost:8080/traceroutes` for a per‑node traceroute
    summary.
 
