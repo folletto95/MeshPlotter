@@ -3,9 +3,9 @@ import os
 import sqlite3
 import time
 from contextlib import asynccontextmanager
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import FastAPI, Query, Request
+from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 try:
@@ -82,8 +82,8 @@ def api_nodes():
         try:
             cur = DB.execute(
                 """
-            SELECT node_id, short_name, long_name, nickname, last_seen, info_packets, lat, lon, alt
-            FROM nodes ORDER BY COALESCE(nickname, long_name, short_name, node_id)
+            SELECT node_id, short_name, long_name, last_seen, info_packets, lat, lon, alt
+            FROM nodes ORDER BY COALESCE(long_name, short_name, node_id)
         """
             )
             rows = cur.fetchall()
@@ -91,13 +91,12 @@ def api_nodes():
             DB.row_factory = old_factory
     out = []
     for r in rows:
-        disp = r["nickname"] or r["long_name"] or r["short_name"] or r["node_id"]
+        disp = r["long_name"] or r["short_name"] or r["node_id"]
         out.append(
             {
                 "node_id": r["node_id"],
                 "short_name": r["short_name"],
                 "long_name": r["long_name"],
-                "nickname": r["nickname"],
                 "display_name": disp,
                 "last_seen": r["last_seen"],
                 "info_packets": r["info_packets"],
@@ -128,19 +127,6 @@ def api_traceroutes(limit: int = Query(default=100, ge=1, le=1000)):
     return JSONResponse(out)
 
 
-@app.post("/api/nodes/nickname")
-async def api_set_nickname(req: Request):
-    data = await req.json()
-    node_id = data.get("node_id")
-    nickname = (data.get("nickname") or "").strip() or None
-    if not node_id:
-        return JSONResponse({"error": "node_id required"}, status_code=400)
-    with DB_LOCK:
-        DB.execute("UPDATE nodes SET nickname=? WHERE node_id=?", (nickname, node_id))
-        DB.commit()
-    return JSONResponse({"status": "ok"})
-
-
 def _resolve_ids(names: List[str]) -> List[str]:
     if not names:
         return []
@@ -149,7 +135,7 @@ def _resolve_ids(names: List[str]) -> List[str]:
         cur = DB.execute(
             f"""
             SELECT node_id FROM nodes
-            WHERE COALESCE(nickname, long_name, short_name, node_id) IN ({qs})
+            WHERE COALESCE(long_name, short_name, node_id) IN ({qs})
         """,
             (*names,),
         )
@@ -164,16 +150,11 @@ def _resolve_ids(names: List[str]) -> List[str]:
 def api_metrics(
     nodes: Optional[str] = Query(default=None, description="Nomi visuali o node_id separati da virgola"),
     since_s: int = Query(default=24 * 3600, ge=0, le=30 * 24 * 3600),
-    use_nick: int = Query(default=0, ge=0, le=1),
 ):
     since_ts = int(time.time()) - since_s
     selected = [s.strip() for s in (nodes.split(",") if nodes else []) if s.strip()]
     ids = _resolve_ids(selected) if selected else []
-    name_expr = (
-        "COALESCE(nodes.nickname, telemetry.node_name, nodes.long_name, nodes.short_name, telemetry.node_id)"
-        if use_nick
-        else "COALESCE(telemetry.node_name, nodes.long_name, nodes.short_name, telemetry.node_id)"
-    )
+    name_expr = "COALESCE(telemetry.node_name, nodes.long_name, nodes.short_name, telemetry.node_id)"
 
     with DB_LOCK:
         old_factory = DB.row_factory
