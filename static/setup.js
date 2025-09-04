@@ -23,6 +23,7 @@ async function loadNodes(){
   }
 }
 
+
 function loadSettings(){
   document.getElementById('mqttServer').value=localStorage.getItem('mqttServer')||'';
 }
