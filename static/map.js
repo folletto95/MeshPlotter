@@ -54,7 +54,9 @@ async function loadNodes(){
         const m = L.marker(pos,{icon}).addTo(map);
         const last = n.last_seen ? new Date(n.last_seen*1000).toLocaleString() : '';
         const alt = n.alt != null ? `<br/>Alt: ${n.alt} m` : '';
-        m.bindPopup(`<b>${name}</b><br/>ID: ${n.node_id}<br/>Ultimo: ${last}${alt}<br/><button onclick="viewNodeRoutes('${n.node_id}')">Visualizza tracce nodo</button>`);
+
+        const checked = nodeRouteFilter === n.node_id ? 'checked' : '';
+        m.bindPopup(`<b>${name}</b><br/>ID: ${n.node_id}<br/>Ultimo: ${last}${alt}<br/><label><input type="checkbox" onclick="viewNodeRoutes('${n.node_id}', this.checked)" ${checked}/> Visualizza tracce nodo</label>`);
         nodeMarkers.set(n.node_id,{marker:m,short:n.short_name||''});
         if (first && !centerNodeId){ map.setView(pos,13); first=false; }
       }
@@ -212,10 +214,15 @@ function setNamesVisibility(vis){
   });
 }
 
-function viewNodeRoutes(nodeId){
-  nodeRouteFilter = nodeRouteFilter === nodeId ? null : nodeId;
+
+function viewNodeRoutes(nodeId, checked){
+  nodeRouteFilter = checked ? nodeId : null;
+  if (checked && !routesVisible){
+    document.getElementById('showRoutes').checked = true;
+    setRoutesVisibility(true);
+  }
   loadTraceroutes();
-  map.closePopup();
+
 }
 
 function removeNodeRoutes(nodeId){
