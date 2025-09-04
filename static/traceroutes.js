@@ -35,9 +35,15 @@ async function loadTraceroutes(){
     const tbody = document.createElement('tbody');
     for (const r of list){
       const tr = document.createElement('tr');
-      const destName = nameOf(r.dest_id);
-      const path = r.route.map(id => nameOf(id)).join(' → ');
-      tr.innerHTML = `<td>${destName} (${r.dest_id})</td><td>${r.hop_count}</td><td>${path}</td>`;
+      const destCell = document.createElement('td');
+      destCell.textContent = `${nameOf(r.dest_id)} (${r.dest_id})`;
+      tr.appendChild(destCell);
+      const hopCell = document.createElement('td');
+      hopCell.textContent = r.hop_count;
+      tr.appendChild(hopCell);
+      const pathCell = document.createElement('td');
+      pathCell.textContent = r.route.map(id => nameOf(id)).join(' → ');
+      tr.appendChild(pathCell);
       tbody.appendChild(tr);
     }
     table.appendChild(tbody);
