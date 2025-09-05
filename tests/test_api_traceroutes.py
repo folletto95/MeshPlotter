@@ -22,7 +22,7 @@ def test_api_traceroutes_deduplication():
             'INSERT INTO traceroutes(ts, src_id, dest_id, route, hop_count) VALUES(?,?,?,?,?)',
             [
                 (1, 'a', 'b', json.dumps(['c']), 2),
-                (2, 'a', 'b', json.dumps(['c']), 2),
+                (2, 'a', 'b', json.dumps(['c', 'd']), 3),
                 (3, 'a', 'd', json.dumps(['e']), 2),
             ],
         )
@@ -32,4 +32,6 @@ def test_api_traceroutes_deduplication():
     assert len(data) == 2
     entry = next(r for r in data if r['dest_id'] == 'b')
     assert entry['ts'] == 2
+    assert entry['hop_count'] == 3
+    assert entry['route'] == ['c', 'd']
     reset_traceroutes()

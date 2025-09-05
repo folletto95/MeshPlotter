@@ -133,7 +133,7 @@ def api_traceroutes(limit: int = Query(default=100, ge=1, le=1000)):
     out = []
     seen = set()
     for ts, src, dest, route_json, hop, radio_json in rows:
-        key = (src, dest, route_json or "")
+        key = (src, dest)
         if key in seen:
             continue
         seen.add(key)
@@ -141,10 +141,6 @@ def api_traceroutes(limit: int = Query(default=100, ge=1, le=1000)):
             route = json.loads(route_json) if route_json else []
         except Exception:
             route = []
-        key = (src, dest, tuple(route))
-        if key in seen:
-            continue
-        seen.add(key)
         try:
             radio = json.loads(radio_json) if radio_json else None
         except Exception:
@@ -193,7 +189,7 @@ def api_admin_delete_empty_nodes():
               AND (lat IS NULL OR lat = 0)
               AND (lon IS NULL OR lon = 0)
               AND (alt IS NULL OR alt = 0)
-
+            """,
         )
         DB.commit()
         deleted = DB.total_changes - before
@@ -206,27 +202,6 @@ def api_admin_delete_node(node_id: str):
         DB.execute("DELETE FROM nodes WHERE node_id=?", (node_id,))
         DB.commit()
     return JSONResponse({"status": "ok"})
-
-
-@app.delete("/api/admin/nodes/empty")
-def api_admin_delete_empty_nodes():
-    with DB_LOCK:
-        before = DB.total_changes
-        DB.execute(
-            """
-            DELETE FROM nodes
-            WHERE short_name IS NULL
-              AND long_name IS NULL
-              AND nickname IS NULL
-              AND lat IS NULL
-              AND lon IS NULL
-              AND alt IS NULL
-            """
-        )
-        DB.commit()
-        deleted = DB.total_changes - before
-    return JSONResponse({"deleted": deleted})
-
 
 @app.post("/api/admin/sql")
 def api_admin_sql(payload: Dict[str, Any] = Body(...)):
