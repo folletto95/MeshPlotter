@@ -52,6 +52,7 @@ else:
 WEB_HOST = cfg["web"].get("host", "0.0.0.0")
 WEB_PORT = int(cfg["web"].get("port", 8080))
 ALLOW_CORS = bool(cfg["web"].get("allow_cors", True))
+TRACEROUTE_TTL = int(cfg["web"].get("traceroute_ttl", 0))
 
 # Diagnostica avvio (no password)
 print(f"[CFG] Loaded: {os.path.abspath(CFG_PATH)}")

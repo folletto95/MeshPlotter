@@ -254,3 +254,20 @@ def test_process_traceroute_json():
     radio = json.loads(row[4])
     assert radio['snr'] == 7.5
     assert radio['rssi'] == -120
+
+
+def test_store_traceroute_overwrites_old():
+    reset_db()
+    msg1 = {'from': 'ff01', 'to': 'a1b2', 'route': ['ff01', 'a1b2']}
+    msg2 = {'from': 'ff01', 'to': 'a1b2', 'route': ['ff01', 'cafe', 'a1b2'], 'hop_count': 2}
+    app.process_mqtt_message('msh/ff01/traceroute', json.dumps(msg1).encode())
+    app.process_mqtt_message('msh/ff01/traceroute', json.dumps(msg2).encode())
+    with app.DB_LOCK:
+        rows = app.DB.execute(
+            'SELECT hop_count, route FROM traceroutes WHERE src_id=? AND dest_id=?',
+            ('ff01', 'a1b2'),
+        ).fetchall()
+    assert len(rows) == 1
+    hop, route = rows[0]
+    assert hop == 2
+    assert json.loads(route) == ['ff01', 'cafe', 'a1b2']
