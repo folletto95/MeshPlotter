@@ -30,8 +30,9 @@ Copy `example.config.yml` to `config.yml` and adjust the settings to match your
 environment.  The file controls:
 
 - **mqtt** – broker address, credentials, protocol version and the list of
-  topics to subscribe to (string or array).  TLS options are available through
-  the `tls` section.
+  topics to subscribe to (string or array).  Set `embedded_broker: true` to
+  launch a lightweight broker with [amqtt](https://github.com/beerfactory/hbmqtt)
+  inside the application. TLS options are available through the `tls` section.
 - **storage** – path to the SQLite database file.  Use `:memory:` for an
   in‑memory instance.
 - **web** – web server host, port and optional CORS support.
@@ -41,6 +42,8 @@ environment.  The file controls:
 ## Quick start
 
 1. Copy `example.config.yml` to `config.yml` and adjust the broker settings.
+   If you don't have an external MQTT server, set `embedded_broker: true` to
+   run a built-in instance.
 2. Install dependencies: `pip install -r requirements.txt`
 3. Start the server: `python app.py`
 4. Visit `http://localhost:8080` to view the dashboard.
@@ -51,6 +54,23 @@ environment.  The file controls:
 
 6. Visit `http://localhost:8080/traceroutes` for a per‑node traceroute
    summary.
+
+## Installazione su Windows
+
+Per creare un eseguibile autonomo su Windows:
+
+1. Installare le dipendenze di sviluppo: `pip install -r requirements.txt`
+2. Generare il file di specifica:
+   ```bash
+   pyinstaller --name MeshPlotter --add-data config.yml;. --add-data static;static app.py
+   ```
+3. Compilare l'eseguibile "one‑file":
+   ```bash
+   pyinstaller MeshPlotter.spec
+   ```
+4. L'eseguibile `MeshPlotter.exe` verrà creato nella cartella `dist`. Avviarlo
+   con un doppio click o da terminale per avviare il server.
+
 
 ## API overview
 
