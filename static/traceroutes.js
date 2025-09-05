@@ -1,4 +1,5 @@
 let nodeNames = new Map();
+const MAX_AGE = 0; // seconds; 0 = no expiry
 
 function nameOf(id){
   return nodeNames.get(id) || id;
@@ -14,7 +15,10 @@ async function loadNodes(){
 }
 
 async function loadTraceroutes(){
-  const res = await fetch('/api/traceroutes?limit=1000');
+  const url = new URL('/api/traceroutes', window.location.origin);
+  url.searchParams.set('limit', '1000');
+  if (MAX_AGE > 0) url.searchParams.set('max_age', MAX_AGE);
+  const res = await fetch(url);
   const routes = await res.json();
   const groups = new Map();
   for (const r of routes){
@@ -45,7 +49,8 @@ async function loadTraceroutes(){
       const tr = document.createElement('tr');
       const destName = nameOf(r.dest_id);
       const destCell = document.createElement('td');
-      destCell.textContent = `${destName} (${r.dest_id})`;
+      const dt = new Date(r.ts * 1000);
+      destCell.innerHTML = `${destName} (${r.dest_id})<br><small>${dt.toLocaleString()}</small>`;
       tr.appendChild(destCell);
 
       const timeCell = document.createElement('td');
@@ -74,3 +79,4 @@ async function loadTraceroutes(){
 }
 
 loadNodes().then(loadTraceroutes);
+

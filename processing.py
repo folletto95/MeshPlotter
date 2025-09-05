@@ -3,7 +3,7 @@ import re
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from config import PROTOBUF_DECODE
+from config import PROTOBUF_DECODE, TRACEROUTE_TTL
 from database import DB, DB_LOCK, upsert_node, store_metric
 
 if PROTOBUF_DECODE:
@@ -515,6 +515,10 @@ def _store_traceroute(node_id: str, now_s: int, data: Dict[str, Any]) -> None:
     radio_json = json.dumps(radio_info) if radio_info else None
 
     with DB_LOCK:
+        DB.execute("DELETE FROM traceroutes WHERE src_id=? AND dest_id=?", (src, dest))
+        if TRACEROUTE_TTL > 0:
+            cutoff = now_s - TRACEROUTE_TTL
+            DB.execute("DELETE FROM traceroutes WHERE ts < ?", (cutoff,))
         DB.execute(
             "INSERT INTO traceroutes(ts, src_id, dest_id, route, hop_count, radio) VALUES(?,?,?,?,?,?)",
             (now_s, src, dest, json.dumps(route_hex), hop_count, radio_json),

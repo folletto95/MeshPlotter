@@ -20,11 +20,12 @@ mqtt:
 storage:
   sqlite_path: "./telemetry.db"
 
-web:
-  host: "0.0.0.0"
-  port: 8080
-  default_limit: 2000
-  allow_cors: true
+  web:
+    host: "0.0.0.0"
+    port: 8080
+    default_limit: 2000
+    allow_cors: true
+    traceroute_ttl: 0   # seconds; 0 = no expiry
 
 # Decodifica messaggi Protobuf (Meshtastic)
 protobuf_decode: true

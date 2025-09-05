@@ -14,7 +14,7 @@ try:
 except Exception:  # pragma: no cover - middleware non disponibile
     HAVE_CORS = False
 
-from config import ALLOW_CORS, UNITS, POWER_V_KEYS, POWER_I_KEYS
+from config import ALLOW_CORS, UNITS, POWER_V_KEYS, POWER_I_KEYS, TRACEROUTE_TTL
 from database import DB, DB_LOCK
 from mqtt_client import start_mqtt
 
@@ -121,10 +121,22 @@ def api_nodes():
 
 
 @app.get("/api/traceroutes")
-def api_traceroutes(limit: int = Query(default=100, ge=1, le=1000)):
+def api_traceroutes(
+    limit: int = Query(default=100, ge=1, le=1000),
+    max_age: int = Query(default=TRACEROUTE_TTL, ge=0),
+):
+    params: List[Any] = []
+    where_clause = ""
+    if max_age:
+        cutoff = int(time.time()) - max_age
+        where_clause = "WHERE t.ts >= ?"
+        params.append(cutoff)
+    params.append(limit)
     with DB_LOCK:
         cur = DB.execute(
-            """
+
+            f"""
+
             SELECT t.ts, t.src_id, t.dest_id, t.route, t.hop_count, t.radio
             FROM traceroutes AS t
             JOIN (
@@ -133,10 +145,11 @@ def api_traceroutes(limit: int = Query(default=100, ge=1, le=1000)):
                 GROUP BY src_id, dest_id
             ) AS latest
               ON t.id = latest.max_id
+            {where_clause}
             ORDER BY t.ts DESC
             LIMIT ?
             """,
-            (limit,),
+            params,
         )
         rows = cur.fetchall()
     out = []
