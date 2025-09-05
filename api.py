@@ -126,26 +126,26 @@ def api_traceroutes(
     max_age: int = Query(default=TRACEROUTE_TTL, ge=0),
 ):
     params: List[Any] = []
-    where_clause = ""
+    sub_where = ""
     if max_age:
         cutoff = int(time.time()) - max_age
-        where_clause = "WHERE t.ts >= ?"
+        sub_where = "WHERE ts >= ?"
         params.append(cutoff)
     params.append(limit)
     with DB_LOCK:
         cur = DB.execute(
-
             f"""
-
             SELECT t.ts, t.src_id, t.dest_id, t.route, t.hop_count, t.radio
-            FROM traceroutes AS t
-            JOIN (
-                SELECT src_id, dest_id, MAX(id) AS max_id
+            FROM (
+                SELECT src_id, dest_id, MAX(ts) AS max_ts
                 FROM traceroutes
+                {sub_where}
                 GROUP BY src_id, dest_id
             ) AS latest
-              ON t.id = latest.max_id
-            {where_clause}
+            JOIN traceroutes AS t
+              ON t.src_id = latest.src_id
+             AND t.dest_id = latest.dest_id
+             AND t.ts = latest.max_ts
             ORDER BY t.ts DESC
             LIMIT ?
             """,
@@ -214,7 +214,6 @@ def api_admin_delete_empty_nodes():
               AND COALESCE(TRIM(nickname), '') = ''
               AND (lat IS NULL OR lat = 0)
               AND (lon IS NULL OR lon = 0)
-              AND (alt IS NULL OR alt = 0)
             """,
         )
         DB.commit()

@@ -50,11 +50,12 @@ async function loadTraceroutes(){
       const destName = nameOf(r.dest_id);
       const destCell = document.createElement('td');
       const dt = new Date(r.ts * 1000);
-      destCell.innerHTML = `${destName} (${r.dest_id})<br><small>${dt.toLocaleString()}</small>`;
+      // show destination ID (user-friendly name and ID) in first cell
+      destCell.innerHTML = `${destName} (${r.dest_id})`;
       tr.appendChild(destCell);
 
       const timeCell = document.createElement('td');
-      const dt = new Date(r.ts * 1000);
+      // show human-readable date/time of reception in second cell
       timeCell.textContent = dt.toLocaleString();
       tr.appendChild(timeCell);
 
