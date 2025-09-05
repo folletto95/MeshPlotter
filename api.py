@@ -190,10 +190,10 @@ def api_admin_delete_empty_nodes():
             WHERE COALESCE(TRIM(short_name), '') = ''
               AND COALESCE(TRIM(long_name), '') = ''
               AND COALESCE(TRIM(nickname), '') = ''
-              AND lat IS NULL
-              AND lon IS NULL
-              AND alt IS NULL
-            """
+              AND (lat IS NULL OR lat = 0)
+              AND (lon IS NULL OR lon = 0)
+              AND (alt IS NULL OR alt = 0)
+
         )
         DB.commit()
         deleted = DB.total_changes - before

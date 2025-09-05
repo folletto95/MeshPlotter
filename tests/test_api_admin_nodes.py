@@ -47,6 +47,7 @@ def test_admin_can_prune_empty_nodes():
         api.DB.execute('INSERT INTO nodes(node_id) VALUES(?)', ('n2',))
         api.DB.execute('INSERT INTO nodes(node_id, last_seen, info_packets) VALUES(?, ?, ?)', ('n3', 123, 4))
         api.DB.execute('INSERT INTO nodes(node_id, short_name, long_name, nickname) VALUES(?, ?, ?, ?)', ('n4', '', '  ', ''))
+        api.DB.execute('INSERT INTO nodes(node_id, lat, lon, alt) VALUES(?, ?, ?, ?)', ('n5', 0, 0, 0))
         api.DB.commit()
     from starlette.routing import Match
 
@@ -62,7 +63,7 @@ def test_admin_can_prune_empty_nodes():
     assert first_match('/api/admin/nodes/empty') == '/api/admin/nodes/empty'
     res = api.api_admin_delete_empty_nodes()
     data = json.loads(res.body)
-    assert data['deleted'] == 3
+    assert data['deleted'] == 4
     with api.DB_LOCK:
         cur = api.DB.execute('SELECT COUNT(*) FROM nodes WHERE node_id=?', ('n1',))
         assert cur.fetchone()[0] == 1
@@ -71,4 +72,7 @@ def test_admin_can_prune_empty_nodes():
         cur = api.DB.execute('SELECT COUNT(*) FROM nodes WHERE node_id=?', ('n3',))
         assert cur.fetchone()[0] == 0
         cur = api.DB.execute('SELECT COUNT(*) FROM nodes WHERE node_id=?', ('n4',))
+
+        assert cur.fetchone()[0] == 0
+        cur = api.DB.execute('SELECT COUNT(*) FROM nodes WHERE node_id=?', ('n5',))
         assert cur.fetchone()[0] == 0
