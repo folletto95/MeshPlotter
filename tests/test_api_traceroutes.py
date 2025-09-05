@@ -50,12 +50,15 @@ def test_api_traceroutes_limit_after_dedup():
             ],
         )
         api.DB.commit()
+
     res = api.api_traceroutes(limit=2, max_age=0)
+
     data = json.loads(res.body)
     assert len(data) == 2
     assert {r['dest_id'] for r in data} == {'b', 'c'}
     entry_b = next(r for r in data if r['dest_id'] == 'b')
     assert entry_b['ts'] == 3
+
     reset_traceroutes()
 
 
@@ -74,4 +77,5 @@ def test_api_traceroutes_max_age():
     res = api.api_traceroutes(limit=10, max_age=50)
     data = json.loads(res.body)
     assert {r['dest_id'] for r in data} == {'c'}
+
     reset_traceroutes()

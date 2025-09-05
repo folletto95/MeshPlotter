@@ -7,7 +7,6 @@ mqtt:
   client_id: "Telemetry"
   protocol: "v311"            # "v5" oppure "v311"
   topics: "#"
-  embedded_broker: false      # true per avviare un broker MQTT interno
 
   # TLS DISABILITATO
   tls:
@@ -20,12 +19,11 @@ mqtt:
 storage:
   sqlite_path: "./telemetry.db"
 
-  web:
-    host: "0.0.0.0"
-    port: 8080
-    default_limit: 2000
-    allow_cors: true
-    traceroute_ttl: 0   # seconds; 0 = no expiry
+web:
+  host: "0.0.0.0"
+  port: 8080
+  default_limit: 2000
+  allow_cors: true
 
 # Decodifica messaggi Protobuf (Meshtastic)
 protobuf_decode: true

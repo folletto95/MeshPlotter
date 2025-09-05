@@ -38,6 +38,7 @@ MQTT_CLIENT_ID = cfg["mqtt"].get("client_id", "telemetry-plotter")
 MQTT_PROTO = (cfg["mqtt"].get("protocol", "v311") or "v311").lower()
 MQTT_TOPICS = _normalize_topics(cfg["mqtt"].get("topics"))
 TLS_CFG = cfg["mqtt"].get("tls") or {"enabled": False}
+EMBEDDED_BROKER = bool(cfg["mqtt"].get("embedded_broker", False))
 
 # Percorso SQLite relativo al file di config
 _raw_db_path = cfg["storage"].get("sqlite_path")
@@ -60,6 +61,7 @@ print(f"[CFG] MQTT host={MQTT_HOST} port={MQTT_PORT} client_id={MQTT_CLIENT_ID} 
 print(f"[CFG] Topics (raw type={type(cfg['mqtt'].get('topics')).__name__}): {cfg['mqtt'].get('topics')!r}")
 print(f"[CFG] Topics (normalized): {MQTT_TOPICS}")
 print(f"[CFG] SQLite DB: {DB_PATH}")
+print(f"[CFG] Embedded broker: {EMBEDDED_BROKER}")
 
 if not MQTT_HOST or not MQTT_PORT:
     raise SystemExit("[CFG] mqtt.host/port mancanti in config.yml")

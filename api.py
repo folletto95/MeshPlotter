@@ -134,7 +134,9 @@ def api_traceroutes(
     params.append(limit)
     with DB_LOCK:
         cur = DB.execute(
+
             f"""
+
             SELECT t.ts, t.src_id, t.dest_id, t.route, t.hop_count, t.radio
             FROM traceroutes AS t
             JOIN (
