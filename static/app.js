@@ -84,6 +84,13 @@ const toggles = {
   voltage:     document.getElementById('toggle-voltage'),
   current:     document.getElementById('toggle-current')
 };
+const zeroToggles = {
+  temperature: document.getElementById('zero-temperature'),
+  humidity:    document.getElementById('zero-humidity'),
+  pressure:    document.getElementById('zero-pressure'),
+  voltage:     document.getElementById('zero-voltage'),
+  current:     document.getElementById('zero-current')
+};
 const VIEW_SETTINGS_KEY = 'view_settings';
 let _hasViewSettings = false;
 let _savedNodes = [];
@@ -100,6 +107,7 @@ function saveViewSettings(){
     showNick: $showNick.checked,
     autoref: $autoref.checked,
     toggles: Object.fromEntries(Object.entries(toggles).map(([fam, el]) => [fam, el.checked])),
+    zeroes: Object.fromEntries(Object.entries(zeroToggles).map(([fam, el]) => [fam, el.checked])),
     nodes: Array.from($nodes.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value)
   };
   try {
@@ -130,6 +138,11 @@ function loadViewSettings(){
         }
       }
     }
+    if (settings.zeroes){
+      for (const [fam, on] of Object.entries(settings.zeroes)){
+        if (zeroToggles[fam]) zeroToggles[fam].checked = on;
+      }
+    }
     if (Array.isArray(settings.nodes)) _savedNodes = settings.nodes;
   } catch (err) {
     console.error('Failed to load view settings', err);
@@ -142,6 +155,9 @@ for (const fam of Object.keys(charts)){
     cards[fam].style.display = toggles[fam].checked ? '' : 'none';
     saveViewSettings();
   };
+}
+for (const fam of Object.keys(zeroToggles)){
+  zeroToggles[fam].onchange = () => { saveViewSettings(); loadData(); };
 }
 
 async function loadNodes(){
@@ -215,14 +231,16 @@ async function loadData(){
   const showNode = ids.length > 1;
   for (const fam of Object.keys(charts)){
     const unit = units[fam] || '';
+    const showZero = zeroToggles[fam]?.checked;
     const ds = (series[fam] || []).map(s => {
-      const last = s.data.length ? s.data[s.data.length - 1].y.toFixed(2) : 'n/a';
+      const dataPoints = showZero ? s.data : s.data.filter(p => p.y !== 0);
+      const last = dataPoints.length ? dataPoints[dataPoints.length - 1].y.toFixed(2) : 'n/a';
       const nodeId = s.node_id;
       const short = nodesMap[nodeId]?.short_name || nodeId.slice(-4);
       const node = short;
       const label = showNode ? `${last} ${unit} ${node}` : `${last} ${unit}`;
       const color = colorFor(nodeId);
-      return { label, data: s.data, node, unit, showNode, borderColor: color, backgroundColor: color };
+      return { label, data: dataPoints, node, unit, showNode, borderColor: color, backgroundColor: color };
     });
     charts[fam].data.datasets = ds;
     charts[fam].update();
