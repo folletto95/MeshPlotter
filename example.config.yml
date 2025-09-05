@@ -7,6 +7,7 @@ mqtt:
   client_id: "Telemetry"
   protocol: "v311"            # "v5" oppure "v311"
   topics: "#"
+  embedded_broker: false      # true per avviare un broker MQTT interno
 
   # TLS DISABILITATO
   tls:
