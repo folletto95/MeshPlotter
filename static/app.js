@@ -233,8 +233,8 @@ async function loadData(){
     const unit = units[fam] || '';
     const showZero = zeroToggles[fam]?.checked;
     const ds = (series[fam] || []).map(s => {
-      const dataPoints = showZero ? s.data : s.data.filter(p => p.y !== 0);
-      const last = dataPoints.length ? dataPoints[dataPoints.length - 1].y.toFixed(2) : 'n/a';
+      const dataPoints = showZero ? s.data : s.data.filter(p => Number(p.y) !== 0);
+      const last = dataPoints.length ? Number(dataPoints[dataPoints.length - 1].y).toFixed(2) : 'n/a';
       const nodeId = s.node_id;
       const short = nodesMap[nodeId]?.short_name || nodeId.slice(-4);
       const node = short;

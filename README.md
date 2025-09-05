@@ -55,6 +55,23 @@ environment.  The file controls:
 6. Visit `http://localhost:8080/traceroutes` for a per‑node traceroute
    summary.
 
+## Installazione su Windows
+
+Per creare un eseguibile autonomo su Windows:
+
+1. Installare le dipendenze di sviluppo: `pip install -r requirements.txt`
+2. Generare il file di specifica:
+   ```bash
+   pyinstaller --name MeshPlotter --add-data config.yml;. --add-data static;static app.py
+   ```
+3. Compilare l'eseguibile "one‑file":
+   ```bash
+   pyinstaller MeshPlotter.spec
+   ```
+4. L'eseguibile `MeshPlotter.exe` verrà creato nella cartella `dist`. Avviarlo
+   con un doppio click o da terminale per avviare il server.
+
+
 ## API overview
 
 | Method | Endpoint               | Description                      |
