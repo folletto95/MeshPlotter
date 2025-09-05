@@ -20,7 +20,7 @@ button.delete{background:#dc2626}
 </table>
 <script>
 async function load(){
-  const res=await fetch('/api/nodes');
+  const res=await fetch('/api/nodes',{cache:'no-store'});
   const data=await res.json();
   const tbody=document.getElementById('nodes-body');
   tbody.innerHTML='';

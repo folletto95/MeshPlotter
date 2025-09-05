@@ -187,9 +187,9 @@ def api_admin_delete_empty_nodes():
         DB.execute(
             """
             DELETE FROM nodes
-            WHERE short_name IS NULL
-              AND long_name IS NULL
-              AND nickname IS NULL
+            WHERE COALESCE(TRIM(short_name), '') = ''
+              AND COALESCE(TRIM(long_name), '') = ''
+              AND COALESCE(TRIM(nickname), '') = ''
               AND lat IS NULL
               AND lon IS NULL
               AND alt IS NULL
