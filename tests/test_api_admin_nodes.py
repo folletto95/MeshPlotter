@@ -72,6 +72,7 @@ def test_admin_can_prune_empty_nodes():
         cur = api.DB.execute('SELECT COUNT(*) FROM nodes WHERE node_id=?', ('n3',))
         assert cur.fetchone()[0] == 0
         cur = api.DB.execute('SELECT COUNT(*) FROM nodes WHERE node_id=?', ('n4',))
+
         assert cur.fetchone()[0] == 0
         cur = api.DB.execute('SELECT COUNT(*) FROM nodes WHERE node_id=?', ('n5',))
         assert cur.fetchone()[0] == 0
