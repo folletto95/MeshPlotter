@@ -124,32 +124,41 @@ def api_nodes():
 def api_traceroutes(limit: int = Query(default=100, ge=1, le=1000)):
     with DB_LOCK:
         cur = DB.execute(
-
-            "SELECT ts, src_id, dest_id, route, hop_count, radio FROM traceroutes ORDER BY id DESC LIMIT ?",
-
+            """
+            SELECT t.ts, t.src_id, t.dest_id, t.route, t.hop_count, t.radio
+            FROM traceroutes AS t
+            JOIN (
+                SELECT src_id, dest_id, MAX(id) AS max_id
+                FROM traceroutes
+                GROUP BY src_id, dest_id
+            ) AS latest
+              ON t.id = latest.max_id
+            ORDER BY t.ts DESC
+            LIMIT ?
+            """,
             (limit,),
         )
         rows = cur.fetchall()
     out = []
-    seen = set()
     for ts, src, dest, route_json, hop, radio_json in rows:
-        key = (src, dest, route_json or "")
-        if key in seen:
-            continue
-        seen.add(key)
         try:
             route = json.loads(route_json) if route_json else []
         except Exception:
             route = []
-        key = (src, dest, tuple(route))
-        if key in seen:
-            continue
-        seen.add(key)
         try:
             radio = json.loads(radio_json) if radio_json else None
         except Exception:
             radio = None
-        out.append({"ts": ts, "src_id": src, "dest_id": dest, "route": route, "hop_count": hop, "radio": radio})
+        out.append(
+            {
+                "ts": ts,
+                "src_id": src,
+                "dest_id": dest,
+                "route": route,
+                "hop_count": hop,
+                "radio": radio,
+            }
+        )
     return JSONResponse(out)
 
 
@@ -190,9 +199,10 @@ def api_admin_delete_empty_nodes():
             WHERE COALESCE(TRIM(short_name), '') = ''
               AND COALESCE(TRIM(long_name), '') = ''
               AND COALESCE(TRIM(nickname), '') = ''
-              AND COALESCE(lat, 0) = 0
-              AND COALESCE(lon, 0) = 0
-            """
+              AND (lat IS NULL OR lat = 0)
+              AND (lon IS NULL OR lon = 0)
+              AND (alt IS NULL OR alt = 0)
+            """,
         )
         DB.commit()
         deleted = DB.total_changes - before
@@ -205,7 +215,6 @@ def api_admin_delete_node(node_id: str):
         DB.execute("DELETE FROM nodes WHERE node_id=?", (node_id,))
         DB.commit()
     return JSONResponse({"status": "ok"})
-
 
 @app.post("/api/admin/sql")
 def api_admin_sql(payload: Dict[str, Any] = Body(...)):

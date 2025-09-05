@@ -32,7 +32,7 @@ async function loadTraceroutes(){
     const maxHops = Math.max(...list.map(r => r.route.length));
     const thead = document.createElement('thead');
     const headerRow = document.createElement('tr');
-    headerRow.innerHTML = '<th>Destinazione</th><th>Hop</th>';
+    headerRow.innerHTML = '<th>Destinazione</th><th>Data</th><th>Hop</th>';
     for (let i = 1; i <= maxHops; i++){
       const th = document.createElement('th');
       th.textContent = i;
@@ -47,6 +47,11 @@ async function loadTraceroutes(){
       const destCell = document.createElement('td');
       destCell.textContent = `${destName} (${r.dest_id})`;
       tr.appendChild(destCell);
+
+      const timeCell = document.createElement('td');
+      const dt = new Date(r.ts * 1000);
+      timeCell.textContent = dt.toLocaleString();
+      tr.appendChild(timeCell);
 
       const hopCell = document.createElement('td');
       hopCell.textContent = r.hop_count;
