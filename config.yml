@@ -1,0 +1,29 @@
+# Configura qui il tuo broker MQTT e i topic da ascoltare
+mqtt:
+  host: "192.168.1.xx"
+  port: 1883
+  username: "user"          # opzionale
+  password: "pass"     # opzionale
+  client_id: "Telemetry"
+  protocol: "v311"            # "v5" oppure "v311"
+  topics: "#"
+
+  # TLS DISABILITATO
+  tls:
+    enabled: false
+    ca_certs: ""
+    certfile: ""
+    keyfile: ""
+    insecure: false
+
+storage:
+  sqlite_path: "./telemetry.db"
+
+web:
+  host: "0.0.0.0"
+  port: 8080
+  default_limit: 2000
+  allow_cors: true
+
+# Decodifica messaggi Protobuf (Meshtastic)
+protobuf_decode: true
