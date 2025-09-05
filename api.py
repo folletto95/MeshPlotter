@@ -180,6 +180,26 @@ def api_admin_update_node(node_id: str, payload: Dict[str, Any] = Body(...)):
     return JSONResponse({"status": "ok"})
 
 
+@app.delete("/api/admin/nodes/empty")
+def api_admin_delete_empty_nodes():
+    with DB_LOCK:
+        before = DB.total_changes
+        DB.execute(
+            """
+            DELETE FROM nodes
+            WHERE COALESCE(TRIM(short_name), '') = ''
+              AND COALESCE(TRIM(long_name), '') = ''
+              AND COALESCE(TRIM(nickname), '') = ''
+              AND lat IS NULL
+              AND lon IS NULL
+              AND alt IS NULL
+            """
+        )
+        DB.commit()
+        deleted = DB.total_changes - before
+    return JSONResponse({"deleted": deleted})
+
+
 @app.delete("/api/admin/nodes/{node_id}")
 def api_admin_delete_node(node_id: str):
     with DB_LOCK:
