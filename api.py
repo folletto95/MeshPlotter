@@ -190,10 +190,9 @@ def api_admin_delete_empty_nodes():
             WHERE COALESCE(TRIM(short_name), '') = ''
               AND COALESCE(TRIM(long_name), '') = ''
               AND COALESCE(TRIM(nickname), '') = ''
-              AND (lat IS NULL OR lat = 0)
-              AND (lon IS NULL OR lon = 0)
-              AND (alt IS NULL OR alt = 0)
-
+              AND COALESCE(lat, 0) = 0
+              AND COALESCE(lon, 0) = 0
+            """
         )
         DB.commit()
         deleted = DB.total_changes - before
@@ -206,26 +205,6 @@ def api_admin_delete_node(node_id: str):
         DB.execute("DELETE FROM nodes WHERE node_id=?", (node_id,))
         DB.commit()
     return JSONResponse({"status": "ok"})
-
-
-@app.delete("/api/admin/nodes/empty")
-def api_admin_delete_empty_nodes():
-    with DB_LOCK:
-        before = DB.total_changes
-        DB.execute(
-            """
-            DELETE FROM nodes
-            WHERE short_name IS NULL
-              AND long_name IS NULL
-              AND nickname IS NULL
-              AND lat IS NULL
-              AND lon IS NULL
-              AND alt IS NULL
-            """
-        )
-        DB.commit()
-        deleted = DB.total_changes - before
-    return JSONResponse({"deleted": deleted})
 
 
 @app.post("/api/admin/sql")
