@@ -22,9 +22,9 @@ def test_api_traceroutes_deduplication():
         api.DB.executemany(
             'INSERT INTO traceroutes(ts, src_id, dest_id, route, hop_count) VALUES(?,?,?,?,?)',
             [
-                (1, 'a', 'b', json.dumps(['c']), 2),
-                (2, 'a', 'b', json.dumps(['c', 'd']), 3),
-                (3, 'a', 'd', json.dumps(['e']), 2),
+                (100, 'a', 'b', json.dumps(['c', 'd']), 3),
+                (50, 'a', 'b', json.dumps(['c']), 2),
+                (75, 'a', 'd', json.dumps(['e']), 2),
             ],
         )
         api.DB.commit()
@@ -32,7 +32,7 @@ def test_api_traceroutes_deduplication():
     data = json.loads(res.body)
     assert len(data) == 2
     entry = next(r for r in data if r['dest_id'] == 'b')
-    assert entry['ts'] == 2
+    assert entry['ts'] == 100
     assert entry['hop_count'] == 3
     assert entry['route'] == ['c', 'd']
     reset_traceroutes()
