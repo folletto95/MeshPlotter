@@ -129,11 +129,36 @@ small{color:#94a3b8}
     </div>
 
     <div class="grid">
-      <div class="card" id="card-temp"><h3 style="margin:0 0 8px">°C</h3><canvas id="chart-temp"></canvas></div>
-      <div class="card" id="card-hum"><h3 style="margin:0 0 8px">%</h3><canvas id="chart-hum"></canvas></div>
-      <div class="card" id="card-press"><h3 style="margin:0 0 8px">hPa</h3><canvas id="chart-press"></canvas></div>
-      <div class="card" id="card-volt"><h3 style="margin:0 0 8px">V</h3><canvas id="chart-volt"></canvas></div>
-      <div class="card" id="card-curr"><h3 style="margin:0 0 8px">mA</h3><canvas id="chart-curr"></canvas></div>
+      <div class="card" id="card-temp">
+        <h3 style="margin:0 0 8px">°C
+          <label style="font-size:0.8em;margin-left:8px"><input type="checkbox" id="zero-temperature" checked/> Valori 0</label>
+        </h3>
+        <canvas id="chart-temp"></canvas>
+      </div>
+      <div class="card" id="card-hum">
+        <h3 style="margin:0 0 8px">%
+          <label style="font-size:0.8em;margin-left:8px"><input type="checkbox" id="zero-humidity" checked/> Valori 0</label>
+        </h3>
+        <canvas id="chart-hum"></canvas>
+      </div>
+      <div class="card" id="card-press">
+        <h3 style="margin:0 0 8px">hPa
+          <label style="font-size:0.8em;margin-left:8px"><input type="checkbox" id="zero-pressure" checked/> Valori 0</label>
+        </h3>
+        <canvas id="chart-press"></canvas>
+      </div>
+      <div class="card" id="card-volt">
+        <h3 style="margin:0 0 8px">V
+          <label style="font-size:0.8em;margin-left:8px"><input type="checkbox" id="zero-voltage" checked/> Valori 0</label>
+        </h3>
+        <canvas id="chart-volt"></canvas>
+      </div>
+      <div class="card" id="card-curr">
+        <h3 style="margin:0 0 8px">mA
+          <label style="font-size:0.8em;margin-left:8px"><input type="checkbox" id="zero-current" checked/> Valori 0</label>
+        </h3>
+        <canvas id="chart-curr"></canvas>
+      </div>
     </div>
   </div>
 </div>
