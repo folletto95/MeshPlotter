@@ -208,7 +208,7 @@ def test_position_update_without_position_key():
         ).fetchone()
     assert row == (3.0, 4.0)
 
-
+    
 def test_position_uses_newest_timestamp(monkeypatch):
     """Positions should update only when a newer timestamp is provided."""
     reset_db()
@@ -247,7 +247,7 @@ def test_position_uses_newest_timestamp(monkeypatch):
         ).fetchone()
     assert row == (7.0, 8.0, 3000)
 
-
+    
 def test_process_traceroute_packet():
     reset_db()
     from meshtastic import mesh_pb2, portnums_pb2
