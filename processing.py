@@ -151,15 +151,27 @@ def _extract_position(
                     lat = float(obj.get("latitude_i")) / 1e7
                 except (TypeError, ValueError):
                     lat = None
+            if lat is None and obj.get("latitudeI") is not None:
+                try:
+                    lat = float(obj.get("latitudeI")) / 1e7
+                except (TypeError, ValueError):
+                    lat = None
             if lon is None and obj.get("longitude_i") is not None:
                 try:
                     lon = float(obj.get("longitude_i")) / 1e7
+                except (TypeError, ValueError):
+                    lon = None
+            if lon is None and obj.get("longitudeI") is not None:
+                try:
+                    lon = float(obj.get("longitudeI")) / 1e7
                 except (TypeError, ValueError):
                     lon = None
             if lat is not None and lon is not None:
                 alt = obj.get("altitude") or obj.get("alt") or obj.get("altitude_m")
                 if alt is None and obj.get("altitude_i") is not None:
                     alt = float(obj.get("altitude_i"))
+                if alt is None and obj.get("altitudeI") is not None:
+                    alt = float(obj.get("altitudeI"))
                 ts_val = None
                 for key in (
                     "time",
@@ -444,7 +456,7 @@ def _process_node(data: Dict[str, Any], topic: str, now_s: int, portnum: Optiona
         upsert_node(node_id, None, "Sconosciuto", now_s)
     else:
         if lat is not None and lon is not None and pos_ts is None:
-            pos_ts = now_s
+            pos_ts = 0
         upsert_node(
             node_id,
             sname,

@@ -184,6 +184,32 @@ def test_position_extraction_int_fields():
     assert row[2] == 42.0
 
 
+def test_position_extraction_camelcase_int_fields():
+    """Ensure latitudeI/longitudeI fields are converted to floats."""
+    reset_db()
+    msg = {
+        'from': 974167536,
+        'data': {
+            'latitudeI': int(45.123456 * 1e7),
+            'longitudeI': int(7.987654 * 1e7),
+            'altitude': 42,
+            'time': 123,
+        },
+    }
+    payload = json.dumps(msg).encode()
+    app.process_mqtt_message('msh/whatever/telemetry', payload)
+    node_id = format(974167536, 'x')
+    with app.DB_LOCK:
+        row = app.DB.execute(
+            'SELECT lat, lon, alt, pos_ts FROM nodes WHERE node_id=?',
+            (node_id,),
+        ).fetchone()
+    assert round(row[0], 6) == 45.123456
+    assert round(row[1], 6) == 7.987654
+    assert row[2] == 42.0
+    assert row[3] == 123
+
+
 def test_position_update_without_position_key():
     """Positions present outside a 'position' block should update nodes."""
     reset_db()
