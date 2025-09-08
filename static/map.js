@@ -76,7 +76,7 @@ async function loadNodes(){
           if (mk) mk.marker.setLatLng(pos);
         }
       }else{
-        const name = n.short_name || n.nickname || n.long_name || n.node_id;
+        const name = n.nickname || n.long_name || n.short_name || n.node_id;
         const label = showNames && n.short_name ? n.short_name : '';
         const m = L.marker(pos,{icon:nodeIcon(n.node_id, label)}).addTo(map);
         const last = n.last_seen ? new Date(n.last_seen*1000).toLocaleString() : '';
@@ -136,7 +136,7 @@ async function loadTraceroutes(){
       if (n && n.lat != null && n.lon != null){
         path.push([n.lat, n.lon]);
       }
-      names.push(n ? (n.short_name || n.nickname || n.long_name || id) : id);
+      names.push(n ? (n.nickname || n.long_name || n.short_name || id) : id);
     }
     if (path.length >= 2){
       const hop = Math.min(r.hop_count, MAX_HOPS);
@@ -146,8 +146,8 @@ async function loadTraceroutes(){
 
       const srcNode = nodes.find(nd => nd.node_id === r.src_id) || {};
       const destNode = nodes.find(nd => nd.node_id === r.dest_id) || {};
-      const srcName = srcNode.short_name || srcNode.nickname || srcNode.long_name || r.src_id;
-      const destName = destNode.short_name || destNode.nickname || destNode.long_name || r.dest_id;
+      const srcName = srcNode.nickname || srcNode.long_name || srcNode.short_name || r.src_id;
+      const destName = destNode.nickname || destNode.long_name || destNode.short_name || r.dest_id;
       let distance = null;
       if (srcNode.lat != null && srcNode.lon != null && destNode.lat != null && destNode.lon != null){
         distance = haversine(srcNode.lat, srcNode.lon, destNode.lat, destNode.lon);
