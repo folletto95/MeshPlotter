@@ -10,6 +10,9 @@ let showNames = false;
 let centerNodeId = localStorage.getItem('centerNodeId');
 let nodeRouteFilter = null;
 
+const hopColors = ['#00ff00','#7fff00','#bfff00','#ffff00','#ffbf00','#ff8000','#ff4000','#ff0000'];
+const MAX_HOPS = hopColors.length - 1;
+
 function colorFor(str){
   let hash = 0;
   for (let i = 0; i < str.length; i++){
@@ -22,9 +25,8 @@ function colorFor(str){
   return `hsl(${h}, ${s}%, ${l}%)`;
 }
 
-const MAX_HOPS = 7;
 function hopColor(count){
-  return colorFor('hop' + count);
+  return hopColors[Math.min(count, MAX_HOPS)];
 }
 
 function nodeIcon(nodeId, label){
