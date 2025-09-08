@@ -443,8 +443,6 @@ def _process_node(data: Dict[str, Any], topic: str, now_s: int, portnum: Optiona
         node_id = "unknown"
         upsert_node(node_id, None, "Sconosciuto", now_s)
     else:
-        if lat is not None and lon is not None and pos_ts is None:
-            pos_ts = now_s
         upsert_node(
             node_id,
             sname,
