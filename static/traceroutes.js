@@ -86,7 +86,8 @@ async function loadTraceroutes(){
   }
 }
 
-async function clearAllRoutes(){
+async function clearAllRoutes(ev){
+  ev?.preventDefault();
   if (!confirm('Eliminare tutte le tracce?')) return;
   let res;
   try{
