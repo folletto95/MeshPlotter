@@ -407,24 +407,17 @@ def _process_node(data: Dict[str, Any], topic: str, now_s: int, portnum: Optiona
     uid, sname, lname = _extract_user_info(data)
     topic_id = _parse_node_id(data, topic)
     node_id = uid or topic_id
-    lat = lon = alt = None
-    should_locate = False
-    if portnum in {"POSITION_APP", "NODEINFO_APP", "WAYPOINT_APP"}:
-        should_locate = True
-    elif "position" in data or (
+    lat, lon, alt = _extract_position(data)
+    if lat is not None and lon is not None:
+        print(
+            f"[DBG] Position for node {node_id or '(unknown)'}: lat={lat} lon={lon} alt={alt}"
+        )
+    elif portnum in {"POSITION_APP", "NODEINFO_APP", "WAYPOINT_APP"} or "position" in data or (
         isinstance(data.get("payload"), dict) and "position" in data["payload"]
     ):
-        should_locate = True
-    if should_locate:
-        lat, lon, alt = _extract_position(data)
-        if lat is not None and lon is not None:
-            print(
-                f"[DBG] Position for node {node_id or '(unknown)'}: lat={lat} lon={lon} alt={alt}"
-            )
-        else:
-            print(
-                f"[DBG] No position for node {node_id or '(unknown)'}; keys={list(data.keys())}"
-            )
+        print(
+            f"[DBG] No position for node {node_id or '(unknown)'}; keys={list(data.keys())}"
+        )
     has_info = bool(uid or sname or lname)
     if not node_id:
         node_id = "unknown"
