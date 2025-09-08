@@ -238,6 +238,15 @@ function removeNodeRoutes(nodeId){
   });
 }
 
+async function clearAllRoutes(){
+  if (!confirm('Eliminare tutte le tracce?')) return;
+  try{
+    await fetch('/api/traceroutes', {method:'DELETE'});
+  }catch{}
+  clearRoutes();
+  await loadTraceroutes();
+}
+
 function addHopLegend(){
   const legend = L.control({position:'bottomleft'});
   legend.onAdd = function(){
@@ -263,6 +272,7 @@ function init(){
   document.getElementById('showNames').addEventListener('change', e => {
     setNamesVisibility(e.target.checked);
   });
+  document.getElementById('clearRoutes').addEventListener('click', clearAllRoutes);
 
 
   addHopLegend();

@@ -175,6 +175,14 @@ def api_traceroutes(
     return JSONResponse(out)
 
 
+@app.delete("/api/traceroutes")
+def api_delete_traceroutes():
+    with DB_LOCK:
+        DB.execute("DELETE FROM traceroutes")
+        DB.commit()
+    return JSONResponse({"status": "ok"})
+
+
 @app.post("/api/nodes/nickname")
 async def api_set_nickname(req: Request):
     data = await req.json()
