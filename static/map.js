@@ -238,7 +238,6 @@ function removeNodeRoutes(nodeId){
   });
 }
 
-
 function addHopLegend(){
   const legend = L.control({position:'bottomleft'});
   legend.onAdd = function(){

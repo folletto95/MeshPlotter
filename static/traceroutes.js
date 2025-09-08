@@ -5,6 +5,12 @@ function nameOf(id){
   return nodeNames.get(id) || id;
 }
 
+function shortName(id){
+  const name = nameOf(id);
+  // Limit displayed name to keep table cells compact
+  return name.length > 10 ? name.slice(0, 9) + '\u2026' : name;
+}
+
 async function loadNodes(){
   const res = await fetch('/api/nodes');
   const nodes = await res.json();
@@ -66,7 +72,8 @@ async function loadTraceroutes(){
       for (let i = 0; i < maxHops; i++){
         const stepCell = document.createElement('td');
         if (i < r.route.length){
-          stepCell.textContent = nameOf(r.route[i]);
+          stepCell.textContent = shortName(r.route[i]);
+          stepCell.title = nameOf(r.route[i]);
         }
         tr.appendChild(stepCell);
       }
