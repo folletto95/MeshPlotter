@@ -184,6 +184,96 @@ def test_position_extraction_int_fields():
     assert row[2] == 42.0
 
 
+def test_position_extraction_camelcase_int_fields():
+    """Ensure latitudeI/longitudeI fields are converted to floats."""
+    reset_db()
+    msg = {
+        'from': 974167536,
+        'data': {
+            'latitudeI': int(45.123456 * 1e7),
+            'longitudeI': int(7.987654 * 1e7),
+            'altitude': 42,
+            'time': 123,
+        },
+    }
+    payload = json.dumps(msg).encode()
+    app.process_mqtt_message('msh/whatever/telemetry', payload)
+    node_id = format(974167536, 'x')
+    with app.DB_LOCK:
+        row = app.DB.execute(
+            'SELECT lat, lon, alt, pos_ts FROM nodes WHERE node_id=?',
+            (node_id,),
+        ).fetchone()
+    assert round(row[0], 6) == 45.123456
+    assert round(row[1], 6) == 7.987654
+    assert row[2] == 42.0
+    assert row[3] == 123
+
+
+def test_position_update_without_position_key():
+    """Positions present outside a 'position' block should update nodes."""
+    reset_db()
+    # first message with position block
+    msg1 = {
+        'user': {'id': 'moveme'},
+        'position': {'latitude': 1.0, 'longitude': 2.0},
+    }
+    app.process_mqtt_message('msh/moveme/telemetry', json.dumps(msg1).encode())
+
+    # second message with top-level coordinates only
+    msg2 = {
+        'user': {'id': 'moveme'},
+        'latitude': 3.0,
+        'longitude': 4.0,
+    }
+    app.process_mqtt_message('msh/moveme/telemetry', json.dumps(msg2).encode())
+
+    with app.DB_LOCK:
+        row = app.DB.execute(
+            'SELECT lat, lon FROM nodes WHERE node_id=?', ('moveme',)
+        ).fetchone()
+    assert row == (3.0, 4.0)
+
+
+def test_position_uses_newest_timestamp(monkeypatch):
+    """Positions update only when timestamp is newer; missing ts is old."""
+    reset_db()
+    import processing
+
+    times = iter([1000, 2000, 3000])
+    monkeypatch.setattr(processing.time, "time", lambda: next(times))
+
+    msg1 = {
+        'user': {'id': 'timed'},
+        'position': {'latitude': 1.0, 'longitude': 2.0, 'time': 100},
+    }
+    app.process_mqtt_message('msh/timed/telemetry', json.dumps(msg1).encode())
+
+    msg2 = {
+        'user': {'id': 'timed'},
+        'position': {'latitude': 5.0, 'longitude': 6.0, 'time': 90},
+    }
+    app.process_mqtt_message('msh/timed/telemetry', json.dumps(msg2).encode())
+
+    with app.DB_LOCK:
+        row = app.DB.execute(
+            'SELECT lat, lon, pos_ts FROM nodes WHERE node_id=?', ('timed',)
+        ).fetchone()
+    assert row == (1.0, 2.0, 100)
+
+    msg3 = {
+        'user': {'id': 'timed'},
+        'position': {'latitude': 7.0, 'longitude': 8.0},
+    }
+    app.process_mqtt_message('msh/timed/telemetry', json.dumps(msg3).encode())
+
+    with app.DB_LOCK:
+        row = app.DB.execute(
+            'SELECT lat, lon, pos_ts FROM nodes WHERE node_id=?', ('timed',)
+        ).fetchone()
+    assert row == (1.0, 2.0, 100)
+
+
 def test_process_traceroute_packet():
     reset_db()
     from meshtastic import mesh_pb2, portnums_pb2
