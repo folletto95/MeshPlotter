@@ -82,6 +82,8 @@ def migrate() -> None:
             DB.execute("ALTER TABLE nodes ADD COLUMN lon REAL")
         if "alt" not in ncols:
             DB.execute("ALTER TABLE nodes ADD COLUMN alt REAL")
+        if "pos_ts" not in ncols:
+            DB.execute("ALTER TABLE nodes ADD COLUMN pos_ts INTEGER")
         DB.execute("UPDATE nodes SET last_seen = 0 WHERE last_seen IS NULL")
         DB.execute("UPDATE nodes SET info_packets = 0 WHERE info_packets IS NULL")
 
@@ -137,6 +139,7 @@ def upsert_node(
     lat: Optional[float] = None,
     lon: Optional[float] = None,
     alt: Optional[float] = None,
+    pos_ts: Optional[int] = None,
 ) -> None:
     if not node_id and not (short_name or long_name):
         return
@@ -146,19 +149,32 @@ def upsert_node(
     with DB_LOCK:
         DB.execute(
             """
-          INSERT INTO nodes(node_id, short_name, long_name, nickname, last_seen, info_packets, lat, lon, alt)
-          VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO nodes(node_id, short_name, long_name, nickname, last_seen, info_packets, lat, lon, alt, pos_ts)
+          VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(node_id) DO UPDATE SET
             short_name = COALESCE(excluded.short_name, nodes.short_name),
             long_name  = COALESCE(excluded.long_name, nodes.long_name),
             last_seen  = MAX(nodes.last_seen, excluded.last_seen),
 
             info_packets = nodes.info_packets + excluded.info_packets,
-            lat = COALESCE(excluded.lat, nodes.lat),
-            lon = COALESCE(excluded.lon, nodes.lon),
-            alt = COALESCE(excluded.alt, nodes.alt)
+            lat = CASE
+                    WHEN excluded.pos_ts >= COALESCE(nodes.pos_ts, 0) THEN excluded.lat
+                    ELSE nodes.lat
+                  END,
+            lon = CASE
+                    WHEN excluded.pos_ts >= COALESCE(nodes.pos_ts, 0) THEN excluded.lon
+                    ELSE nodes.lon
+                  END,
+            alt = CASE
+                    WHEN excluded.pos_ts >= COALESCE(nodes.pos_ts, 0) THEN excluded.alt
+                    ELSE nodes.alt
+                  END,
+            pos_ts = CASE
+                    WHEN excluded.pos_ts >= COALESCE(nodes.pos_ts, 0) THEN excluded.pos_ts
+                    ELSE nodes.pos_ts
+                  END
         """,
-            (node_id, short_name, long_name, None, ts, inc, lat, lon, alt),
+            (node_id, short_name, long_name, None, ts, inc, lat, lon, alt, pos_ts),
         )
         name_to_set = long_name or short_name
         if node_id and name_to_set:
