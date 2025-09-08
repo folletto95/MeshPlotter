@@ -24,7 +24,7 @@ def test_estimate_position_single_neighbour():
         api.DB.execute('INSERT INTO nodes(node_id) VALUES(?)', ('n2',))
         api.DB.execute(
             'INSERT INTO traceroutes(ts, src_id, dest_id, route, hop_count) VALUES(?,?,?,?,?)',
-            (0, 'n1', 'n2', json.dumps(['n1', 'n2']), 1),
+            (0, 'n1', 'n2', json.dumps([]), 1),
         )
         api.DB.commit()
     res = api.api_nodes()
@@ -32,6 +32,10 @@ def test_estimate_position_single_neighbour():
     n2 = next(n for n in data if n['node_id'] == 'n2')
     assert n2['lat'] == pytest.approx(10.001)
     assert n2['lon'] == pytest.approx(20.001)
+    with api.DB_LOCK:
+        row = api.DB.execute('SELECT lat, lon FROM nodes WHERE node_id=?', ('n2',)).fetchone()
+    assert row[0] == pytest.approx(10.001)
+    assert row[1] == pytest.approx(20.001)
 
 
 def test_estimate_position_multiple_neighbours():
@@ -42,7 +46,7 @@ def test_estimate_position_multiple_neighbours():
         api.DB.execute('INSERT INTO nodes(node_id) VALUES(?)', ('n4',))
         api.DB.execute(
             'INSERT INTO traceroutes(ts, src_id, dest_id, route, hop_count) VALUES(?,?,?,?,?)',
-            (0, 'n1', 'n3', json.dumps(['n1', 'n4', 'n3']), 2),
+            (0, 'n1', 'n3', json.dumps(['n4']), 2),
         )
         api.DB.commit()
     res = api.api_nodes()
@@ -50,3 +54,7 @@ def test_estimate_position_multiple_neighbours():
     n4 = next(n for n in data if n['node_id'] == 'n4')
     assert n4['lat'] == pytest.approx(15.0)
     assert n4['lon'] == pytest.approx(25.0)
+    with api.DB_LOCK:
+        row = api.DB.execute('SELECT lat, lon FROM nodes WHERE node_id=?', ('n4',)).fetchone()
+    assert row[0] == pytest.approx(15.0)
+    assert row[1] == pytest.approx(25.0)

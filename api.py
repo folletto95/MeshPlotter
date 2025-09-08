@@ -109,9 +109,25 @@ def _estimate_missing_positions(nodes: List[Dict[str, Any]]) -> None:
         return
 
     with DB_LOCK:
-        cur = DB.execute("SELECT route FROM traceroutes")
-        routes = [json.loads(r[0]) for r in cur.fetchall() if r[0]]
+        cur = DB.execute("SELECT src_id, dest_id, route FROM traceroutes")
+        raw_routes = cur.fetchall()
 
+    routes: List[List[str]] = []
+    for src, dest, rjson in raw_routes:
+        path: List[str] = []
+        if src:
+            path.append(src)
+        if rjson:
+            try:
+                path.extend(json.loads(rjson))
+            except Exception:
+                pass
+        if dest and dest not in path:
+            path.append(dest)
+        if len(path) >= 2:
+            routes.append(path)
+
+    updates: List[Tuple[float, float, Optional[float], str]] = []
     for node in unknown:
         nid = node["node_id"]
         neighbours: set[str] = set()
@@ -139,6 +155,18 @@ def _estimate_missing_positions(nodes: List[Dict[str, Any]]) -> None:
             node["lon"] = sum(lons) / len(lons)
             if alts and node.get("alt") is None:
                 node["alt"] = sum(alts) / len(alts)
+
+
+        updates.append((node["lat"], node["lon"], node.get("alt"), nid))
+
+    if updates:
+        with DB_LOCK:
+            DB.executemany(
+                "UPDATE nodes SET lat=?, lon=?, alt=?, pos_ts=COALESCE(pos_ts,0) WHERE node_id=?",
+                updates,
+            )
+            DB.commit()
+
 
 
 @app.get("/api/nodes")
