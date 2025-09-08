@@ -22,6 +22,11 @@ function colorFor(str){
   return `hsl(${h}, ${s}%, ${l}%)`;
 }
 
+const MAX_HOPS = 7;
+function hopColor(count){
+  return colorFor('hop' + count);
+}
+
 function nodeIcon(nodeId, label){
   const color = colorFor(nodeId);
   return L.divIcon({
@@ -132,7 +137,8 @@ async function loadTraceroutes(){
       names.push(n ? (n.nickname || n.long_name || n.short_name || id) : id);
     }
     if (path.length >= 2){
-      const color = colorFor(r.src_id || ids[0]);
+      const hop = Math.min(r.hop_count, MAX_HOPS);
+      const color = hopColor(hop);
       const line = L.polyline(path, {color, weight:2});
       line.bindTooltip(`${r.hop_count} hop${r.hop_count===1?'':'s'}`);
 
@@ -264,6 +270,19 @@ function removeNodeRoutes(nodeId){
   });
 }
 
+function addHopLegend(){
+  const legend = L.control({position:'bottomleft'});
+  legend.onAdd = function(){
+    const div = L.DomUtil.create('div','hop-legend');
+    for(let i=1;i<=MAX_HOPS;i++){
+      const label = i === MAX_HOPS ? `${i}+` : `${i}`;
+      div.innerHTML += `<span style="background:${hopColor(i)}"></span>${label}<br/>`;
+    }
+    return div;
+  };
+  legend.addTo(map);
+}
+
 function init(){
   map = L.map('map').setView([0,0], 2);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -277,6 +296,7 @@ function init(){
   document.getElementById('showNames').addEventListener('change', e => {
     setNamesVisibility(e.target.checked);
   });
+  addHopLegend();
 }
 
 async function refresh(){
