@@ -165,7 +165,7 @@ for (const fam of Object.keys(zeroToggles)){
 
 async function loadNodes(){
   try {
-    const res = await fetch('/api/nodes');
+    const res = await fetch('/api/nodes?include_inactive=false');
     const nodes = await res.json();
     const selected = Array.from($nodes.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
     const preselect = selected.length ? selected : _savedNodes;

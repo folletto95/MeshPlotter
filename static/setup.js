@@ -1,7 +1,7 @@
 async function loadNodes(){
   let nodes=[];
   try{
-    const res=await fetch('/api/nodes');
+    const res=await fetch('/api/nodes?include_inactive=false');
     nodes=await res.json();
   }catch{
     nodes=[];
