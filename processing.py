@@ -19,7 +19,15 @@ def _json_loads(b: bytes) -> Optional[Dict[str, Any]]:
     try:
         return json.loads(b.decode("utf-8"))
     except Exception:
-        return None
+        try:
+            text = b.decode("utf-8", errors="ignore")
+            start = text.find("{")
+            end = text.rfind("}")
+            if start != -1 and end != -1 and start < end:
+                return json.loads(text[start : end + 1])
+        except Exception:
+            return None
+    return None
 
 
 def _find_user_blocks(obj: Any) -> List[Dict[str, Any]]:

@@ -145,7 +145,23 @@ def test_process_meshpacket_message():
         rows = app.DB.execute('SELECT node_id, metric, value FROM telemetry').fetchall()
     assert rows == [('a1b2c3', 'temperature', 29.0)]
 
-    
+
+def test_process_json_with_noise():
+    """JSON payloads preceded by non-JSON text are still decoded."""
+    reset_db()
+    msg = {
+        'user': {'id': 'noisy'},
+        'position': {'latitude': 12.34, 'longitude': 56.78},
+    }
+    payload = b'garbage\n' + json.dumps(msg).encode()
+    app.process_mqtt_message('msh/noisy/telemetry', payload)
+    with app.DB_LOCK:
+        row = app.DB.execute(
+            'SELECT lat, lon FROM nodes WHERE node_id=?', ('noisy',)
+        ).fetchone()
+    assert row == (12.34, 56.78)
+
+
 def test_position_extraction_float():
     """Ensure latitude/longitude fields are stored for JSON payloads."""
     reset_db()
