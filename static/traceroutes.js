@@ -24,7 +24,7 @@ async function loadTraceroutes(){
   const url = new URL('/api/traceroutes', window.location.origin);
   url.searchParams.set('limit', '1000');
   if (MAX_AGE > 0) url.searchParams.set('max_age', MAX_AGE);
-  const res = await fetch(url);
+  const res = await fetch(url, {cache:'no-store'});
   const routes = await res.json();
   const groups = new Map();
   for (const r of routes){
@@ -88,9 +88,17 @@ async function loadTraceroutes(){
 
 async function clearAllRoutes(){
   if (!confirm('Eliminare tutte le tracce?')) return;
+  let res;
   try{
-    await fetch('/api/traceroutes', {method:'DELETE'});
-  }catch{}
+    res = await fetch('/api/traceroutes', {method:'DELETE'});
+  }catch{
+    alert('Errore durante l\'eliminazione delle tracce');
+    return;
+  }
+  if (!res.ok){
+    alert('Errore durante l\'eliminazione delle tracce');
+    return;
+  }
   await loadTraceroutes();
 }
 
