@@ -35,6 +35,7 @@ def test_api_traceroutes_deduplication():
     assert entry['ts'] == 100
     assert entry['hop_count'] == 3
     assert entry['route'] == ['c', 'd']
+    assert entry['via'] == 'mqtt'
     reset_traceroutes()
 
 
@@ -58,7 +59,25 @@ def test_api_traceroutes_limit_after_dedup():
     assert {r['dest_id'] for r in data} == {'b', 'c'}
     entry_b = next(r for r in data if r['dest_id'] == 'b')
     assert entry_b['ts'] == 3
+    assert all(r['via'] == 'mqtt' for r in data)
 
+    reset_traceroutes()
+
+
+def test_api_traceroutes_via_radio():
+    reset_traceroutes()
+    with api.DB_LOCK:
+        api.DB.execute(
+            'INSERT INTO traceroutes(ts, src_id, dest_id, route, hop_count, radio) VALUES(?,?,?,?,?,?)',
+            (1, 'a', 'b', json.dumps(['x', 'y']), 2, json.dumps({'snr': 1})),
+        )
+        api.DB.commit()
+    res = api.api_traceroutes(limit=10, max_age=0)
+    data = json.loads(res.body)
+    assert len(data) == 1
+    entry = data[0]
+    assert entry['via'] == 'radio'
+    assert entry['radio']['snr'] == 1
     reset_traceroutes()
 
 
@@ -77,6 +96,7 @@ def test_api_traceroutes_max_age():
     res = api.api_traceroutes(limit=10, max_age=50)
     data = json.loads(res.body)
     assert {r['dest_id'] for r in data} == {'c'}
+    assert all(r['via'] == 'mqtt' for r in data)
 
     reset_traceroutes()
 

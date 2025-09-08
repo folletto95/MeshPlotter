@@ -162,6 +162,7 @@ def api_traceroutes(
             radio = json.loads(radio_json) if radio_json else None
         except Exception:
             radio = None
+        via = "radio" if radio else "mqtt"
         out.append(
             {
                 "ts": ts,
@@ -170,6 +171,7 @@ def api_traceroutes(
                 "route": route,
                 "hop_count": hop,
                 "radio": radio,
+                "via": via,
             }
         )
     return JSONResponse(out)

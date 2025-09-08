@@ -154,7 +154,7 @@ async function loadTraceroutes(){
         }
         segments.push({from:names[i], to:names[i+1], distance:dist});
       }
-      line.info = {srcName, destName, ts:r.ts, distance, radio:r.radio, names, segments};
+      line.info = {srcName, destName, ts:r.ts, distance, radio:r.radio, via:r.via, names, segments};
       line.on('click', e => {highlightRoute(line); if (focusLine === line) showRouteInfo(line, e.latlng);});
 
       line.nodeIds = ids;
@@ -204,16 +204,17 @@ function showRouteInfo(line, latlng){
   const info = line.info || {};
   const time = info.ts ? new Date(info.ts*1000).toLocaleString() : '';
   const dist = info.distance != null ? info.distance.toFixed(2) + ' km' : 'N/D';
-  let radio = 'N/D';
-  if (info.radio){
-    radio = Object.entries(info.radio).map(([k,v]) => `${k}: ${v}`).join('<br/>');
+  const type = info.via === 'radio' ? 'Radio' : 'MQTT';
+  let signal = '';
+  if (info.via === 'radio'){
+    signal = info.radio ? Object.entries(info.radio).map(([k,v]) => `${k}: ${v}`).join('<br/>') : 'N/D';
   }
   const pathStr = info.names ? info.names.join(' → ') : '';
   let segHtml = '';
   if (info.segments){
     segHtml = info.segments.map(s => `${s.from} → ${s.to}: ${s.distance != null ? s.distance.toFixed(2)+' km' : 'N/D'}`).join('<br/>');
   }
-  const html = `<b>${info.srcName||''}</b> → <b>${info.destName||''}</b><br/>${time}<br/>Distanza: ${dist}<br/>${radio}${pathStr?'<br/>'+pathStr:''}${segHtml?'<br/>'+segHtml:''}`;
+  const html = `<b>${info.srcName||''}</b> → <b>${info.destName||''}</b><br/>${time}<br/>Collegamento: ${type}${signal?'<br/>'+signal:''}<br/>Distanza: ${dist}${pathStr?'<br/>'+pathStr:''}${segHtml?'<br/>'+segHtml:''}`;
   L.popup().setLatLng(latlng).setContent(html).openOn(map);
 }
 
