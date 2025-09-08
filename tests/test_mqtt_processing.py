@@ -209,8 +209,8 @@ def test_position_update_without_position_key():
     assert row == (3.0, 4.0)
 
 
-def test_position_uses_newest_timestamp(monkeypatch):
-    """Positions update only when timestamp is newer; missing ts is old."""
+def test_position_missing_timestamp_uses_arrival(monkeypatch):
+    """Missing timestamp uses arrival time and overrides older data."""
     reset_db()
     import processing
 
@@ -245,7 +245,34 @@ def test_position_uses_newest_timestamp(monkeypatch):
         row = app.DB.execute(
             'SELECT lat, lon, pos_ts FROM nodes WHERE node_id=?', ('timed',)
         ).fetchone()
-    assert row == (1.0, 2.0, 100)
+    assert row == (7.0, 8.0, 3000)
+
+
+def test_existing_node_without_pos_ts_is_old(monkeypatch):
+    """Nodes stored without pos_ts are treated as old when a new position arrives."""
+    reset_db()
+    import processing
+
+    monkeypatch.setattr(processing.time, "time", lambda: 1000)
+
+    with app.DB_LOCK:
+        app.DB.execute(
+            'INSERT INTO nodes(node_id, lat, lon, pos_ts) VALUES(?, ?, ?, NULL)',
+            ('legacy', 1.0, 2.0),
+        )
+        app.DB.commit()
+
+    msg = {
+        'user': {'id': 'legacy'},
+        'position': {'latitude': 3.0, 'longitude': 4.0},
+    }
+    app.process_mqtt_message('msh/legacy/telemetry', json.dumps(msg).encode())
+
+    with app.DB_LOCK:
+        row = app.DB.execute(
+            'SELECT lat, lon, pos_ts FROM nodes WHERE node_id=?', ('legacy',)
+        ).fetchone()
+    assert row == (3.0, 4.0, 1000)
 
 
 def test_process_traceroute_packet():

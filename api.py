@@ -84,18 +84,29 @@ def setup_ui():
     return FileResponse(os.path.join("static", "setup.html"))
 
 
+
 @app.get("/api/nodes")
-def api_nodes():
+def api_nodes(include_inactive: bool = Query(default=True)):
+    """Return known nodes.
+
+    ``include_inactive`` hides placeholder entries that have not yet
+    received any packets.  It is a stopgap until proper node lifecycle
+    information is available.
+    """
+    query = (
+        """
+        SELECT node_id, short_name, long_name, nickname, last_seen, info_packets, lat, lon, alt
+        FROM nodes
+        """
+    )
+    if not include_inactive:
+        query += " WHERE last_seen > 0 OR info_packets > 0"
+    query += " ORDER BY COALESCE(nickname, long_name, short_name, node_id)"
     with DB_LOCK:
         old_factory = DB.row_factory
         DB.row_factory = sqlite3.Row
         try:
-            cur = DB.execute(
-                """
-            SELECT node_id, short_name, long_name, nickname, last_seen, info_packets, lat, lon, alt
-            FROM nodes ORDER BY COALESCE(nickname, long_name, short_name, node_id)
-        """
-            )
+            cur = DB.execute(query)
             rows = cur.fetchall()
         finally:
             DB.row_factory = old_factory

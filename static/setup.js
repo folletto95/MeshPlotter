@@ -1,7 +1,8 @@
 async function loadNodes(){
   let nodes=[];
   try{
-    const res=await fetch('/api/nodes');
+    // FIXME: skip nodes with no activity until real info is present
+    const res=await fetch('/api/nodes?include_inactive=false');
     nodes=await res.json();
   }catch{
     nodes=[];

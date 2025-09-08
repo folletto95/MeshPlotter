@@ -79,3 +79,15 @@ def test_admin_can_prune_empty_nodes():
         assert cur.fetchone()[0] == 0
         cur = api.DB.execute('SELECT COUNT(*) FROM nodes WHERE node_id=?', ('n6',))
         assert cur.fetchone()[0] == 0
+
+
+def test_api_nodes_excludes_inactive():
+    reset_nodes()
+    with api.DB_LOCK:
+        api.DB.execute('INSERT INTO nodes(node_id, short_name) VALUES(?, ?)', ('n1', 'ghost'))
+        api.DB.execute('INSERT INTO nodes(node_id, short_name, last_seen) VALUES(?, ?, ?)', ('n2', 'seen', 123))
+        api.DB.commit()
+    res = api.api_nodes(include_inactive=False)
+    data = json.loads(res.body)
+    ids = [d['node_id'] for d in data]
+    assert ids == ['n2']

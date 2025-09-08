@@ -52,7 +52,8 @@ function haversine(lat1, lon1, lat2, lon2){
 async function loadNodes(){
   let fetched = [];
   try{
-    const res = await fetch('/api/nodes');
+    // FIXME: ignore placeholder nodes until real info arrives
+    const res = await fetch('/api/nodes?include_inactive=false');
     fetched = await res.json();
   }catch{
     return;

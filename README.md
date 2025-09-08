@@ -76,10 +76,14 @@ Per creare un eseguibile autonomo su Windows:
 
 | Method | Endpoint               | Description                      |
 | ------ | ---------------------- | -------------------------------- |
-| `GET`  | `/api/nodes`           | List of known nodes              |
+| `GET`  | `/api/nodes`           | List of known nodes (`include_inactive=false` hides placeholders) |
 | `POST` | `/api/nodes/nickname`  | Set or clear a node nickname     |
 | `GET`  | `/api/metrics`         | Telemetry series (chart format)  |
 | `GET`  | `/api/traceroutes`     | Recent traceroute discoveries    |
+
+The `include_inactive` flag is a temporary workaround to ignore nodes
+created before any packet is received; once reliable node lifecycle
+data is available it will be removed.
 
 ## Auto update
 
