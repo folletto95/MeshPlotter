@@ -76,7 +76,7 @@ Per creare un eseguibile autonomo su Windows:
 
 | Method | Endpoint               | Description                      |
 | ------ | ---------------------- | -------------------------------- |
-| `GET`  | `/api/nodes`           | List of known nodes              |
+| `GET`  | `/api/nodes`           | List of known nodes (`include_inactive=false` hides unseen ones) |
 | `POST` | `/api/nodes/nickname`  | Set or clear a node nickname     |
 | `GET`  | `/api/metrics`         | Telemetry series (chart format)  |
 | `GET`  | `/api/traceroutes`     | Recent traceroute discoveries    |
