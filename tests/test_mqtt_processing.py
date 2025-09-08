@@ -184,6 +184,31 @@ def test_position_extraction_int_fields():
     assert row[2] == 42.0
 
 
+def test_position_update_without_position_key():
+    """Positions present outside a 'position' block should update nodes."""
+    reset_db()
+    # first message with position block
+    msg1 = {
+        'user': {'id': 'moveme'},
+        'position': {'latitude': 1.0, 'longitude': 2.0},
+    }
+    app.process_mqtt_message('msh/moveme/telemetry', json.dumps(msg1).encode())
+
+    # second message with top-level coordinates only
+    msg2 = {
+        'user': {'id': 'moveme'},
+        'latitude': 3.0,
+        'longitude': 4.0,
+    }
+    app.process_mqtt_message('msh/moveme/telemetry', json.dumps(msg2).encode())
+
+    with app.DB_LOCK:
+        row = app.DB.execute(
+            'SELECT lat, lon FROM nodes WHERE node_id=?', ('moveme',)
+        ).fetchone()
+    assert row == (3.0, 4.0)
+
+
 def test_process_traceroute_packet():
     reset_db()
     from meshtastic import mesh_pb2, portnums_pb2

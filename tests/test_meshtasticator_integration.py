@@ -18,6 +18,8 @@ import os
 import subprocess
 import sys
 import time
+import shutil
+import pytest
 
 from paho.mqtt.client import Client as MQTTClient
 from meshtastic import telemetry_pb2
@@ -38,7 +40,10 @@ def reset_db():
 
 
 def start_broker():
-    proc = subprocess.Popen(['mosquitto', '-p', '1883'])
+    mosq = shutil.which('mosquitto')
+    if not mosq:
+        pytest.skip('mosquitto broker not installed')
+    proc = subprocess.Popen([mosq, '-p', '1883'])
     # Give the broker a moment to start
     time.sleep(0.5)
     return proc
