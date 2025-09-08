@@ -7,9 +7,29 @@ const routeMarkers = new Map();
 let focusLine = null;
 let routesVisible = true;
 let showNames = false;
-const hopColors = ['#00ff00','#7fff00','#bfff00','#ffff00','#ffbf00','#ff8000','#ff4000','#ff0000'];
 let centerNodeId = localStorage.getItem('centerNodeId');
 let nodeRouteFilter = null;
+
+function colorFor(str){
+  let hash = 0;
+  for (let i = 0; i < str.length; i++){
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const abs = Math.abs(hash);
+  const h = abs % 360;
+  const s = 65 + ((abs >> 8) % 20);  // 65-84
+  const l = 50 + ((abs >> 16) % 20); // 50-69
+  return `hsl(${h}, ${s}%, ${l}%)`;
+}
+
+function nodeIcon(nodeId, label){
+  const color = colorFor(nodeId);
+  return L.divIcon({
+    className:'',
+    html:`<div class="node-label" style="background:${color};">${label||''}</div>`,
+    iconSize:[24,24]
+  });
+}
 
 
 function haversine(lat1, lon1, lat2, lon2){
@@ -50,8 +70,8 @@ async function loadNodes(){
         }
       }else{
         const name = n.nickname || n.long_name || n.short_name || n.node_id;
-        const icon = L.divIcon({className:'node-label', html:showNames && n.short_name ? n.short_name : '', iconSize:[24,24]});
-        const m = L.marker(pos,{icon}).addTo(map);
+        const label = showNames && n.short_name ? n.short_name : '';
+        const m = L.marker(pos,{icon:nodeIcon(n.node_id, label)}).addTo(map);
         const last = n.last_seen ? new Date(n.last_seen*1000).toLocaleString() : '';
         const alt = n.alt != null ? `<br/>Alt: ${n.alt} m` : '';
 
@@ -112,7 +132,7 @@ async function loadTraceroutes(){
       names.push(n ? (n.nickname || n.long_name || n.short_name || id) : id);
     }
     if (path.length >= 2){
-      const color = hopColors[Math.min(r.hop_count, hopColors.length-1)];
+      const color = colorFor(r.src_id || ids[0]);
       const line = L.polyline(path, {color, weight:2});
       line.bindTooltip(`${r.hop_count} hop${r.hop_count===1?'':'s'}`);
 
@@ -139,7 +159,12 @@ async function loadTraceroutes(){
 
       line.nodeIds = ids;
       line.defaultColor = color;
-      const markers = path.map(pt => L.circleMarker(pt, {radius:4, color}));
+      const markers = path.map((pt, idx) => {
+        const c = colorFor(ids[idx]);
+        const mk = L.circleMarker(pt, {radius:4, color:c});
+        mk.defaultColor = c;
+        return mk;
+      });
       routeLines.push(line);
       routeMarkers.set(line, markers);
       if (routesVisible){
@@ -156,7 +181,7 @@ function highlightRoute(line){
     routeLines.forEach(l => {
       if (!map.hasLayer(l)){
         l.addTo(map).setStyle({color:l.defaultColor, weight:2});
-        routeMarkers.get(l).forEach(m => m.addTo(map).setStyle({color:l.defaultColor}));
+        routeMarkers.get(l).forEach(m => m.addTo(map).setStyle({color:m.defaultColor}));
       }
     });
     focusLine = null;
@@ -197,7 +222,7 @@ function setRoutesVisibility(vis){
   routeLines.forEach(l => {
     if (vis){
       l.addTo(map).setStyle({color:l.defaultColor, weight:2});
-      routeMarkers.get(l).forEach(m => m.addTo(map).setStyle({color:l.defaultColor}));
+      routeMarkers.get(l).forEach(m => m.addTo(map).setStyle({color:m.defaultColor}));
     } else {
       map.removeLayer(l);
       routeMarkers.get(l).forEach(m => map.removeLayer(m));
@@ -208,9 +233,9 @@ function setRoutesVisibility(vis){
 
 function setNamesVisibility(vis){
   showNames = vis;
-  nodeMarkers.forEach(v => {
-    const html = vis ? v.short : '';
-    v.marker.setIcon(L.divIcon({className:'node-label', html, iconSize:[24,24]}));
+  nodeMarkers.forEach((v, k) => {
+    const label = vis ? v.short : '';
+    v.marker.setIcon(nodeIcon(k, label));
   });
 }
 
@@ -238,18 +263,6 @@ function removeNodeRoutes(nodeId){
   });
 }
 
-function addHopLegend(){
-  const legend = L.control({position:'bottomleft'});
-  legend.onAdd = function(){
-    const div = L.DomUtil.create('div','hop-legend');
-    hopColors.forEach((c,i)=>{
-      div.innerHTML += `<span style="background:${c}"></span>${i}<br/>`;
-    });
-    return div;
-  };
-  legend.addTo(map);
-}
-
 function init(){
   map = L.map('map').setView([0,0], 2);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -263,7 +276,6 @@ function init(){
   document.getElementById('showNames').addEventListener('change', e => {
     setNamesVisibility(e.target.checked);
   });
-  addHopLegend();
 }
 
 async function refresh(){
