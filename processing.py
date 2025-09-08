@@ -137,8 +137,10 @@ def _extract_user_info(d: Dict[str, Any]) -> Tuple[Optional[str], Optional[str],
     return None, None, None
 
 
-def _extract_position(d: Dict[str, Any]) -> Tuple[Optional[float], Optional[float], Optional[float]]:
-    """Look for latitude/longitude/altitude in the message."""
+def _extract_position(
+    d: Dict[str, Any]
+) -> Tuple[Optional[float], Optional[float], Optional[float], Optional[int]]:
+    """Look for latitude/longitude/altitude and an optional timestamp."""
 
     def _search(obj: Any):
         if isinstance(obj, dict):
@@ -158,13 +160,31 @@ def _extract_position(d: Dict[str, Any]) -> Tuple[Optional[float], Optional[floa
                 alt = obj.get("altitude") or obj.get("alt") or obj.get("altitude_m")
                 if alt is None and obj.get("altitude_i") is not None:
                     alt = float(obj.get("altitude_i"))
+                ts_val = None
+                for key in (
+                    "time",
+                    "timestamp",
+                    "time_sec",
+                    "time_secs",
+                    "timeSeconds",
+                    "timestamp_ms",
+                    "timeMs",
+                ):
+                    if key in obj and obj[key] is not None:
+                        try:
+                            ts_val = int(obj[key])
+                            if "ms" in key.lower():
+                                ts_val = int(float(obj[key]) / 1000)
+                        except (TypeError, ValueError):
+                            ts_val = None
+                        break
                 try:
                     lat_f = float(lat)
                     lon_f = float(lon)
                     if lat_f == 0 and lon_f == 0:
                         raise ValueError
                     alt_f = float(alt) if alt is not None else None
-                    return lat_f, lon_f, alt_f
+                    return lat_f, lon_f, alt_f, ts_val
                 except (TypeError, ValueError):
                     pass
             for v in obj.values():
@@ -181,7 +201,7 @@ def _extract_position(d: Dict[str, Any]) -> Tuple[Optional[float], Optional[floa
     res = _search(d)
     if res:
         return res
-    return None, None, None
+    return None, None, None, None
 
 
 def _parse_node_id(d: Dict[str, Any], topic: str) -> Optional[str]:
@@ -407,24 +427,17 @@ def _process_node(data: Dict[str, Any], topic: str, now_s: int, portnum: Optiona
     uid, sname, lname = _extract_user_info(data)
     topic_id = _parse_node_id(data, topic)
     node_id = uid or topic_id
-    lat = lon = alt = None
-    should_locate = False
-    if portnum in {"POSITION_APP", "NODEINFO_APP", "WAYPOINT_APP"}:
-        should_locate = True
-    elif "position" in data or (
+    lat, lon, alt, pos_ts = _extract_position(data)
+    if lat is not None and lon is not None:
+        print(
+            f"[DBG] Position for node {node_id or '(unknown)'}: lat={lat} lon={lon} alt={alt}"
+        )
+    elif portnum in {"POSITION_APP", "NODEINFO_APP", "WAYPOINT_APP"} or "position" in data or (
         isinstance(data.get("payload"), dict) and "position" in data["payload"]
     ):
-        should_locate = True
-    if should_locate:
-        lat, lon, alt = _extract_position(data)
-        if lat is not None and lon is not None:
-            print(
-                f"[DBG] Position for node {node_id or '(unknown)'}: lat={lat} lon={lon} alt={alt}"
-            )
-        else:
-            print(
-                f"[DBG] No position for node {node_id or '(unknown)'}; keys={list(data.keys())}"
-            )
+        print(
+            f"[DBG] No position for node {node_id or '(unknown)'}; keys={list(data.keys())}"
+        )
     has_info = bool(uid or sname or lname)
     if not node_id:
         node_id = "unknown"
@@ -439,6 +452,7 @@ def _process_node(data: Dict[str, Any], topic: str, now_s: int, portnum: Optiona
             lat=lat,
             lon=lon,
             alt=alt,
+            pos_ts=pos_ts if lat is not None and lon is not None else None,
         )
     return node_id
 
