@@ -10,6 +10,9 @@ let showNames = false;
 let centerNodeId = localStorage.getItem('centerNodeId');
 let nodeRouteFilter = null;
 
+const hopColors = ['#00ff00','#7fff00','#bfff00','#ffff00','#ffbf00','#ff8000','#ff4000','#ff0000'];
+const MAX_HOPS = hopColors.length - 1;
+
 function colorFor(str){
   let hash = 0;
   for (let i = 0; i < str.length; i++){
@@ -20,6 +23,10 @@ function colorFor(str){
   const s = 65 + ((abs >> 8) % 20);  // 65-84
   const l = 50 + ((abs >> 16) % 20); // 50-69
   return `hsl(${h}, ${s}%, ${l}%)`;
+}
+
+function hopColor(count){
+  return hopColors[Math.min(count, MAX_HOPS)];
 }
 
 function nodeIcon(nodeId, label){
@@ -132,7 +139,8 @@ async function loadTraceroutes(){
       names.push(n ? (n.nickname || n.long_name || n.short_name || id) : id);
     }
     if (path.length >= 2){
-      const color = colorFor(r.src_id || ids[0]);
+      const hop = Math.min(r.hop_count, MAX_HOPS);
+      const color = hopColor(hop);
       const line = L.polyline(path, {color, weight:2});
       line.bindTooltip(`${r.hop_count} hop${r.hop_count===1?'':'s'}`);
 
@@ -264,6 +272,19 @@ function removeNodeRoutes(nodeId){
   });
 }
 
+function addHopLegend(){
+  const legend = L.control({position:'bottomleft'});
+  legend.onAdd = function(){
+    const div = L.DomUtil.create('div','hop-legend');
+    for(let i=1;i<=MAX_HOPS;i++){
+      const label = i === MAX_HOPS ? `${i}+` : `${i}`;
+      div.innerHTML += `<span style="background:${hopColor(i)}"></span>${label}<br/>`;
+    }
+    return div;
+  };
+  legend.addTo(map);
+}
+
 function init(){
   map = L.map('map').setView([0,0], 2);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -277,6 +298,7 @@ function init(){
   document.getElementById('showNames').addEventListener('change', e => {
     setNamesVisibility(e.target.checked);
   });
+  addHopLegend();
 }
 
 async function refresh(){
