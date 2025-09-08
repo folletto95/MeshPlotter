@@ -36,7 +36,8 @@ async function loadTraceroutes(){
   for (const [src, list] of groups){
     const sec = document.createElement('section');
     const h = document.createElement('h3');
-    h.textContent = `${nameOf(src)} (${src})`;
+    h.textContent = `${shortName(src)} (${src})`;
+    h.title = nameOf(src);
     sec.appendChild(h);
     const table = document.createElement('table');
     const maxHops = Math.max(...list.map(r => r.route.length));
@@ -57,7 +58,8 @@ async function loadTraceroutes(){
       const destCell = document.createElement('td');
       const dt = new Date(r.ts * 1000);
       // show destination ID (user-friendly name and ID) in first cell
-      destCell.innerHTML = `${destName} (${r.dest_id})`;
+      destCell.textContent = `${shortName(r.dest_id)} (${r.dest_id})`;
+      destCell.title = destName;
       tr.appendChild(destCell);
 
       const timeCell = document.createElement('td');
