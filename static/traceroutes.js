@@ -14,7 +14,7 @@ function shortName(id){
 }
 
 async function loadNodes(){
-  const res = await fetch('/api/nodes');
+  const res = await fetch('/api/nodes?include_inactive=false');
   const nodes = await res.json();
   for (const n of nodes){
     nodesMap.set(n.node_id, n);

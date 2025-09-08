@@ -184,6 +184,32 @@ def test_position_extraction_int_fields():
     assert row[2] == 42.0
 
 
+def test_position_extraction_camelcase_int_fields():
+    """Ensure latitudeI/longitudeI fields are converted to floats."""
+    reset_db()
+    msg = {
+        'from': 974167536,
+        'data': {
+            'latitudeI': int(45.123456 * 1e7),
+            'longitudeI': int(7.987654 * 1e7),
+            'altitude': 42,
+            'time': 123,
+        },
+    }
+    payload = json.dumps(msg).encode()
+    app.process_mqtt_message('msh/whatever/telemetry', payload)
+    node_id = format(974167536, 'x')
+    with app.DB_LOCK:
+        row = app.DB.execute(
+            'SELECT lat, lon, alt, pos_ts FROM nodes WHERE node_id=?',
+            (node_id,),
+        ).fetchone()
+    assert round(row[0], 6) == 45.123456
+    assert round(row[1], 6) == 7.987654
+    assert row[2] == 42.0
+    assert row[3] == 123
+
+
 def test_position_update_without_position_key():
     """Positions present outside a 'position' block should update nodes."""
     reset_db()
@@ -208,9 +234,9 @@ def test_position_update_without_position_key():
         ).fetchone()
     assert row == (3.0, 4.0)
 
-    
+
 def test_position_uses_newest_timestamp(monkeypatch):
-    """Positions should update only when a newer timestamp is provided."""
+    """Positions update only when timestamp is newer; missing ts uses arrival time."""
     reset_db()
     import processing
 
@@ -247,7 +273,34 @@ def test_position_uses_newest_timestamp(monkeypatch):
         ).fetchone()
     assert row == (7.0, 8.0, 3000)
 
-    
+
+def test_existing_node_without_pos_ts_is_old(monkeypatch):
+    """Nodes stored without pos_ts are treated as old when a new position arrives."""
+    reset_db()
+    import processing
+
+    monkeypatch.setattr(processing.time, "time", lambda: 1000)
+
+    with app.DB_LOCK:
+        app.DB.execute(
+            'INSERT INTO nodes(node_id, lat, lon, pos_ts) VALUES(?, ?, ?, NULL)',
+            ('legacy', 1.0, 2.0),
+        )
+        app.DB.commit()
+
+    msg = {
+        'user': {'id': 'legacy'},
+        'position': {'latitude': 3.0, 'longitude': 4.0},
+    }
+    app.process_mqtt_message('msh/legacy/telemetry', json.dumps(msg).encode())
+
+    with app.DB_LOCK:
+        row = app.DB.execute(
+            'SELECT lat, lon, pos_ts FROM nodes WHERE node_id=?', ('legacy',)
+        ).fetchone()
+    assert row == (3.0, 4.0, 1000)
+
+
 def test_process_traceroute_packet():
     reset_db()
     from meshtastic import mesh_pb2, portnums_pb2

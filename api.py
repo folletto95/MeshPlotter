@@ -156,6 +156,7 @@ def _estimate_missing_positions(nodes: List[Dict[str, Any]]) -> None:
             if alts and node.get("alt") is None:
                 node["alt"] = sum(alts) / len(alts)
 
+
         updates.append((node["lat"], node["lon"], node.get("alt"), nid))
 
     if updates:
@@ -167,18 +168,23 @@ def _estimate_missing_positions(nodes: List[Dict[str, Any]]) -> None:
             DB.commit()
 
 
+
 @app.get("/api/nodes")
-def api_nodes():
+def api_nodes(include_inactive: bool = Query(default=True)):
+    query = (
+        """
+        SELECT node_id, short_name, long_name, nickname, last_seen, info_packets, lat, lon, alt
+        FROM nodes
+        """
+    )
+    if not include_inactive:
+        query += " WHERE last_seen > 0 OR info_packets > 0"
+    query += " ORDER BY COALESCE(nickname, long_name, short_name, node_id)"
     with DB_LOCK:
         old_factory = DB.row_factory
         DB.row_factory = sqlite3.Row
         try:
-            cur = DB.execute(
-                """
-            SELECT node_id, short_name, long_name, nickname, last_seen, info_packets, lat, lon, alt
-            FROM nodes ORDER BY COALESCE(nickname, long_name, short_name, node_id)
-        """
-            )
+            cur = DB.execute(query)
             rows = cur.fetchall()
         finally:
             DB.row_factory = old_factory

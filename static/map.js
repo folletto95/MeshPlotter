@@ -52,7 +52,7 @@ function haversine(lat1, lon1, lat2, lon2){
 async function loadNodes(){
   let fetched = [];
   try{
-    const res = await fetch('/api/nodes');
+    const res = await fetch('/api/nodes?include_inactive=false');
     fetched = await res.json();
   }catch{
     return;
