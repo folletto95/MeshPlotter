@@ -43,7 +43,7 @@ async function loadTraceroutes(){
     const maxHops = Math.max(...list.map(r => r.route.length));
     const thead = document.createElement('thead');
     const headerRow = document.createElement('tr');
-    headerRow.innerHTML = '<th>Destinazione</th><th>Data</th><th>Hop</th>';
+    headerRow.innerHTML = '<th>Destinazione</th><th>Data</th><th>Hop</th><th>Collegamento</th>';
     for (let i = 1; i <= maxHops; i++){
       const th = document.createElement('th');
       th.textContent = i;
@@ -70,6 +70,15 @@ async function loadTraceroutes(){
       const hopCell = document.createElement('td');
       hopCell.textContent = r.hop_count;
       tr.appendChild(hopCell);
+
+      const typeCell = document.createElement('td');
+      if (r.via === 'radio'){
+        const sig = r.radio ? Object.entries(r.radio).map(([k,v]) => `${k}: ${v}`).join(', ') : '';
+        typeCell.textContent = sig ? `Radio (${sig})` : 'Radio';
+      }else{
+        typeCell.textContent = 'MQTT';
+      }
+      tr.appendChild(typeCell);
 
       for (let i = 0; i < maxHops; i++){
         const stepCell = document.createElement('td');
