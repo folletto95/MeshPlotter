@@ -30,8 +30,11 @@ function colorFor(str){
   for (let i = 0; i < str.length; i++){
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
-  const h = Math.abs(hash) % 360;
-  return `hsl(${h}, 70%, 60%)`;
+  const abs = Math.abs(hash);
+  const h = abs % 360;
+  const s = 65 + ((abs >> 8) % 20);  // 65-84
+  const l = 50 + ((abs >> 16) % 20); // 50-69
+  return `hsl(${h}, ${s}%, ${l}%)`;
 }
 
 function mkChart(ctx, yLabel){
