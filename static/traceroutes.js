@@ -79,5 +79,15 @@ async function loadTraceroutes(){
   }
 }
 
+async function clearAllRoutes(){
+  if (!confirm('Eliminare tutte le tracce?')) return;
+  try{
+    await fetch('/api/traceroutes', {method:'DELETE'});
+  }catch{}
+  await loadTraceroutes();
+}
+
+document.getElementById('clearRoutes').addEventListener('click', clearAllRoutes);
+
 loadNodes().then(loadTraceroutes);
 

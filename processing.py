@@ -515,7 +515,10 @@ def _store_traceroute(node_id: str, now_s: int, data: Dict[str, Any]) -> None:
     radio_json = json.dumps(radio_info) if radio_info else None
 
     with DB_LOCK:
-        DB.execute("DELETE FROM traceroutes WHERE src_id=? AND dest_id=?", (src, dest))
+        DB.execute(
+            "DELETE FROM traceroutes WHERE (src_id=? AND dest_id=?) OR (src_id=? AND dest_id=?)",
+            (src, dest, dest, src),
+        )
         if TRACEROUTE_TTL > 0:
             cutoff = now_s - TRACEROUTE_TTL
             DB.execute("DELETE FROM traceroutes WHERE ts < ?", (cutoff,))

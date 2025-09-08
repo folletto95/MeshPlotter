@@ -79,3 +79,17 @@ def test_api_traceroutes_max_age():
     assert {r['dest_id'] for r in data} == {'c'}
 
     reset_traceroutes()
+
+
+def test_api_traceroutes_delete():
+    reset_traceroutes()
+    with api.DB_LOCK:
+        api.DB.execute(
+            'INSERT INTO traceroutes(ts, src_id, dest_id, route, hop_count) VALUES(?,?,?,?,?)',
+            (1, 'a', 'b', json.dumps(['x']), 2),
+        )
+        api.DB.commit()
+    api.api_delete_traceroutes()
+    with api.DB_LOCK:
+        cnt = api.DB.execute('SELECT COUNT(*) FROM traceroutes').fetchone()[0]
+    assert cnt == 0

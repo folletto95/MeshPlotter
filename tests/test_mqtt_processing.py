@@ -271,3 +271,15 @@ def test_store_traceroute_overwrites_old():
     hop, route = rows[0]
     assert hop == 2
     assert json.loads(route) == ['ff01', 'cafe', 'a1b2']
+
+
+def test_store_traceroute_removes_reverse_pair():
+    reset_db()
+    msg1 = {'from': 'aa01', 'to': 'bb02', 'route': ['aa01', 'bb02']}
+    msg2 = {'from': 'bb02', 'to': 'aa01', 'route': ['bb02', 'aa01']}
+    app.process_mqtt_message('msh/aa01/traceroute', json.dumps(msg1).encode())
+    app.process_mqtt_message('msh/bb02/traceroute', json.dumps(msg2).encode())
+    with app.DB_LOCK:
+        rows = app.DB.execute('SELECT src_id, dest_id FROM traceroutes').fetchall()
+    assert len(rows) == 1
+    assert rows[0] == ('bb02', 'aa01')

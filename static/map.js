@@ -238,6 +238,7 @@ function removeNodeRoutes(nodeId){
   });
 }
 
+
 function addHopLegend(){
   const legend = L.control({position:'bottomleft'});
   legend.onAdd = function(){
@@ -263,8 +264,6 @@ function init(){
   document.getElementById('showNames').addEventListener('change', e => {
     setNamesVisibility(e.target.checked);
   });
-
-
   addHopLegend();
 }
 
