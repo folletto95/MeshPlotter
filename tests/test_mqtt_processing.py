@@ -236,7 +236,7 @@ def test_position_update_without_position_key():
 
 
 def test_position_uses_newest_timestamp(monkeypatch):
-    """Positions update only when timestamp is newer; missing ts is old."""
+    """Positions update only when timestamp is newer; missing ts uses arrival time."""
     reset_db()
     import processing
 
@@ -271,7 +271,7 @@ def test_position_uses_newest_timestamp(monkeypatch):
         row = app.DB.execute(
             'SELECT lat, lon, pos_ts FROM nodes WHERE node_id=?', ('timed',)
         ).fetchone()
-    assert row == (1.0, 2.0, 100)
+    assert row == (7.0, 8.0, 3000)
 
 
 def test_process_traceroute_packet():
