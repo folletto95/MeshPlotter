@@ -235,8 +235,8 @@ def test_position_update_without_position_key():
     assert row == (3.0, 4.0)
 
 
-def test_position_missing_timestamp_uses_arrival(monkeypatch):
-    """Missing timestamp uses arrival time and overrides older data."""
+def test_position_uses_newest_timestamp(monkeypatch):
+    """Positions update only when timestamp is newer; missing ts uses arrival time."""
     reset_db()
     import processing
 
