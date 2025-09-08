@@ -208,7 +208,46 @@ def test_position_update_without_position_key():
         ).fetchone()
     assert row == (3.0, 4.0)
 
+    
+def test_position_uses_newest_timestamp(monkeypatch):
+    """Positions should update only when a newer timestamp is provided."""
+    reset_db()
+    import processing
 
+    times = iter([1000, 2000, 3000])
+    monkeypatch.setattr(processing.time, "time", lambda: next(times))
+
+    msg1 = {
+        'user': {'id': 'timed'},
+        'position': {'latitude': 1.0, 'longitude': 2.0, 'time': 100},
+    }
+    app.process_mqtt_message('msh/timed/telemetry', json.dumps(msg1).encode())
+
+    msg2 = {
+        'user': {'id': 'timed'},
+        'position': {'latitude': 5.0, 'longitude': 6.0, 'time': 90},
+    }
+    app.process_mqtt_message('msh/timed/telemetry', json.dumps(msg2).encode())
+
+    with app.DB_LOCK:
+        row = app.DB.execute(
+            'SELECT lat, lon, pos_ts FROM nodes WHERE node_id=?', ('timed',)
+        ).fetchone()
+    assert row == (1.0, 2.0, 100)
+
+    msg3 = {
+        'user': {'id': 'timed'},
+        'position': {'latitude': 7.0, 'longitude': 8.0},
+    }
+    app.process_mqtt_message('msh/timed/telemetry', json.dumps(msg3).encode())
+
+    with app.DB_LOCK:
+        row = app.DB.execute(
+            'SELECT lat, lon, pos_ts FROM nodes WHERE node_id=?', ('timed',)
+        ).fetchone()
+    assert row == (7.0, 8.0, 3000)
+
+    
 def test_process_traceroute_packet():
     reset_db()
     from meshtastic import mesh_pb2, portnums_pb2
