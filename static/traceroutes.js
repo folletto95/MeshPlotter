@@ -1,12 +1,14 @@
-let nodeNames = new Map();
+let nodesMap = new Map();
 const MAX_AGE = 0; // seconds; 0 = no expiry
 
 function nameOf(id){
-  return nodeNames.get(id) || id;
+  const n = nodesMap.get(id);
+  return n?.nickname || n?.long_name || n?.short_name || id;
 }
 
 function shortName(id){
-  const name = nameOf(id);
+  const n = nodesMap.get(id);
+  const name = n?.short_name || n?.nickname || n?.long_name || id;
   // Limit displayed name to keep table cells compact
   return name.length > 10 ? name.slice(0, 9) + '\u2026' : name;
 }
@@ -15,8 +17,7 @@ async function loadNodes(){
   const res = await fetch('/api/nodes');
   const nodes = await res.json();
   for (const n of nodes){
-    const name = n.nickname || n.long_name || n.short_name || n.node_id;
-    nodeNames.set(n.node_id, name);
+    nodesMap.set(n.node_id, n);
   }
 }
 
