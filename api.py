@@ -84,6 +84,89 @@ def setup_ui():
     return FileResponse(os.path.join("static", "setup.html"))
 
 
+def _estimate_missing_positions(nodes: List[Dict[str, Any]]) -> None:
+    """Assign estimated coordinates to nodes lacking a position.
+
+    Nodes that have no ``lat``/``lon`` values but appear in traceroute paths
+    alongside nodes with known coordinates will be placed near or between those
+    neighbours:
+
+    * if only a single neighbour has a known position, the node is placed just
+      offset from that neighbour's location;
+    * if two or more neighbours have known positions, the node is centred
+      amongst them (average latitude/longitude).
+
+    The function mutates the ``nodes`` list in place.
+    """
+
+    known_pos = {
+        n["node_id"]: (n["lat"], n["lon"], n.get("alt"))
+        for n in nodes
+        if n.get("lat") is not None and n.get("lon") is not None
+    }
+    unknown = [n for n in nodes if n.get("lat") is None or n.get("lon") is None]
+    if not unknown:
+        return
+
+    with DB_LOCK:
+        cur = DB.execute("SELECT src_id, dest_id, route FROM traceroutes")
+        raw_routes = cur.fetchall()
+
+    routes: List[List[str]] = []
+    for src, dest, rjson in raw_routes:
+        path: List[str] = []
+        if src:
+            path.append(src)
+        if rjson:
+            try:
+                path.extend(json.loads(rjson))
+            except Exception:
+                pass
+        if dest and dest not in path:
+            path.append(dest)
+        if len(path) >= 2:
+            routes.append(path)
+
+    updates: List[Tuple[float, float, Optional[float], str]] = []
+    for node in unknown:
+        nid = node["node_id"]
+        neighbours: set[str] = set()
+        for route in routes:
+            if nid in route:
+                for other in route:
+                    if other != nid and other in known_pos:
+                        neighbours.add(other)
+
+        if not neighbours:
+            continue
+
+        if len(neighbours) == 1:
+            lat, lon, alt = known_pos[next(iter(neighbours))]
+            offset = 0.001
+            node["lat"] = lat + offset
+            node["lon"] = lon + offset
+            if node.get("alt") is None and alt is not None:
+                node["alt"] = alt
+        else:
+            lats = [known_pos[n][0] for n in neighbours]
+            lons = [known_pos[n][1] for n in neighbours]
+            alts = [known_pos[n][2] for n in neighbours if known_pos[n][2] is not None]
+            node["lat"] = sum(lats) / len(lats)
+            node["lon"] = sum(lons) / len(lons)
+            if alts and node.get("alt") is None:
+                node["alt"] = sum(alts) / len(alts)
+
+        updates.append((node["lat"], node["lon"], node.get("alt"), nid))
+
+    if updates:
+        with DB_LOCK:
+            DB.executemany(
+                "UPDATE nodes SET lat=?, lon=?, alt=?, pos_ts=COALESCE(pos_ts,0) WHERE node_id=?",
+                updates,
+            )
+            DB.commit()
+
+
 @app.get("/api/nodes")
 def api_nodes():
     with DB_LOCK:
@@ -116,7 +199,7 @@ def api_nodes():
                 "alt": r["alt"],
             }
         )
-
+    _estimate_missing_positions(out)
     return JSONResponse(out)
 
 
