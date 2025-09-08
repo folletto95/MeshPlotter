@@ -208,9 +208,9 @@ def test_position_update_without_position_key():
         ).fetchone()
     assert row == (3.0, 4.0)
 
-    
+
 def test_position_uses_newest_timestamp(monkeypatch):
-    """Positions should update only when a newer timestamp is provided."""
+    """Positions update only when timestamp is newer; missing ts is old."""
     reset_db()
     import processing
 
@@ -245,9 +245,9 @@ def test_position_uses_newest_timestamp(monkeypatch):
         row = app.DB.execute(
             'SELECT lat, lon, pos_ts FROM nodes WHERE node_id=?', ('timed',)
         ).fetchone()
-    assert row == (7.0, 8.0, 3000)
+    assert row == (1.0, 2.0, 100)
 
-    
+
 def test_process_traceroute_packet():
     reset_db()
     from meshtastic import mesh_pb2, portnums_pb2

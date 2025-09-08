@@ -158,19 +158,23 @@ def upsert_node(
 
             info_packets = nodes.info_packets + excluded.info_packets,
             lat = CASE
-                    WHEN excluded.pos_ts >= COALESCE(nodes.pos_ts, 0) THEN excluded.lat
+                    WHEN nodes.pos_ts IS NULL THEN excluded.lat
+                    WHEN excluded.pos_ts >= nodes.pos_ts THEN excluded.lat
                     ELSE nodes.lat
                   END,
             lon = CASE
-                    WHEN excluded.pos_ts >= COALESCE(nodes.pos_ts, 0) THEN excluded.lon
+                    WHEN nodes.pos_ts IS NULL THEN excluded.lon
+                    WHEN excluded.pos_ts >= nodes.pos_ts THEN excluded.lon
                     ELSE nodes.lon
                   END,
             alt = CASE
-                    WHEN excluded.pos_ts >= COALESCE(nodes.pos_ts, 0) THEN excluded.alt
+                    WHEN nodes.pos_ts IS NULL THEN excluded.alt
+                    WHEN excluded.pos_ts >= nodes.pos_ts THEN excluded.alt
                     ELSE nodes.alt
                   END,
             pos_ts = CASE
-                    WHEN excluded.pos_ts >= COALESCE(nodes.pos_ts, 0) THEN excluded.pos_ts
+                    WHEN nodes.pos_ts IS NULL THEN excluded.pos_ts
+                    WHEN excluded.pos_ts >= nodes.pos_ts THEN excluded.pos_ts
                     ELSE nodes.pos_ts
                   END
         """,
