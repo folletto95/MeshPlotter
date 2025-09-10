@@ -1,6 +1,7 @@
 import os
 import importlib
 import json
+import time
 
 # Config per l'app: puntiamo al file di test
 os.environ['TP_CONFIG'] = os.path.join(os.path.dirname(__file__), 'test.config.yml')
@@ -9,6 +10,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import app  # noqa: E402
+import config  # noqa: E402
 
 # Garantiamo che l'app utilizzi la nuova configurazione
 importlib.reload(app)
@@ -443,3 +445,21 @@ def test_store_traceroute_removes_reverse_pair():
         rows = app.DB.execute('SELECT src_id, dest_id FROM traceroutes').fetchall()
     assert len(rows) == 1
     assert rows[0] == ('bb02', 'aa01')
+
+
+def test_store_traceroute_prunes_old():
+    reset_db()
+    old_ts = int(time.time()) - config.TRACEROUTE_TTL - 1
+    with app.DB_LOCK:
+        app.DB.execute(
+            'INSERT INTO traceroutes(ts, src_id, dest_id, route, hop_count) VALUES(?,?,?,?,?)',
+            (old_ts, 'ff01', 'cafe', json.dumps(['ff01', 'cafe']), 1),
+        )
+        app.DB.commit()
+
+    msg = {'from': 'a1b2', 'to': 'b1c2', 'route': ['a1b2', 'b1c2']}
+    app.process_mqtt_message('msh/a1b2/traceroute', json.dumps(msg).encode())
+
+    with app.DB_LOCK:
+        rows = app.DB.execute('SELECT src_id, dest_id FROM traceroutes').fetchall()
+    assert rows == [('a1b2', 'b1c2')]

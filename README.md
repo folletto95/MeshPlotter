@@ -21,6 +21,8 @@ powered by Chart.js and Leaflet.
 - **REST API** – `/api/nodes`, `/api/metrics` and `/api/traceroutes` return the
   stored data as JSON.  The nickname of a node can be changed with a
   `POST /api/nodes/nickname` request.
+- **Automatic cleanup** – traceroute entries older than 12 hours are
+  periodically removed to keep the database small.
 - **Auto update** – an optional background thread can periodically run
   `git pull` to keep the code in sync with its remote repository.
 
