@@ -290,6 +290,33 @@ def test_position_uses_newest_timestamp(monkeypatch):
     assert row == (7.0, 8.0, 3000)
 
 
+def test_position_zero_timestamp_uses_arrival_time(monkeypatch):
+    """Explicit time=0 should be treated as missing and use arrival time."""
+    reset_db()
+    import processing
+
+    times = iter([1000, 2000])
+    monkeypatch.setattr(processing.time, "time", lambda: next(times))
+
+    msg1 = {
+        'user': {'id': 'zero'},
+        'position': {'latitude': 1.0, 'longitude': 2.0, 'time': 100},
+    }
+    app.process_mqtt_message('msh/zero/telemetry', json.dumps(msg1).encode())
+
+    msg2 = {
+        'user': {'id': 'zero'},
+        'position': {'latitude': 3.0, 'longitude': 4.0, 'time': 0},
+    }
+    app.process_mqtt_message('msh/zero/telemetry', json.dumps(msg2).encode())
+
+    with app.DB_LOCK:
+        row = app.DB.execute(
+            'SELECT lat, lon, pos_ts FROM nodes WHERE node_id=?', ('zero',)
+        ).fetchone()
+    assert row == (3.0, 4.0, 2000)
+
+
 def test_existing_node_without_pos_ts_is_old(monkeypatch):
     """Nodes stored without pos_ts are treated as old when a new position arrives."""
     reset_db()
