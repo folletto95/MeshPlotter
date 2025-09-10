@@ -195,6 +195,8 @@ def _extract_position(
                             ts_val = int(obj[key])
                             if "ms" in key.lower():
                                 ts_val = int(float(obj[key]) / 1000)
+                            if ts_val == 0:
+                                ts_val = None
                         except (TypeError, ValueError):
                             ts_val = None
                         break
