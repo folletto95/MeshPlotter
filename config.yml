@@ -24,6 +24,7 @@ web:
   port: 8080
   default_limit: 2000
   allow_cors: true
+  traceroute_ttl: 43200
 
 # Decodifica messaggi Protobuf (Meshtastic)
 protobuf_decode: true

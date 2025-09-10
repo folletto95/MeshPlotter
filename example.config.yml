@@ -25,7 +25,7 @@ storage:
     port: 8080
     default_limit: 2000
     allow_cors: true
-    traceroute_ttl: 0   # seconds; 0 = no expiry
+    traceroute_ttl: 43200   # seconds; 0 = no expiry
 
 # Decodifica messaggi Protobuf (Meshtastic)
 protobuf_decode: true
